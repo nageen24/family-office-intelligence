@@ -20,6 +20,13 @@ Rough and honest by design — not polished. Dated as decided.
 
 **Uncertainty:** How many genuine SFOs (vs MFOs) the free sources will actually surface within 48h is unproven — this is the main risk to hitting 50 qualifying records. To validate.
 
+**Added after self-review (I asked: are we missing an important source?):** Before locking the list I deliberately checked it for blind spots and added three more, all aimed at the hidden-SFO problem:
+- **Job postings** (LinkedIn / Indeed) — an SFO quietly hiring a CIO/analyst exposes its existence even with no website. Strong, under-used SFO signal.
+- **Conference speaker/attendee lists + podcasts** — principals appear publicly here even when the firm doesn't.
+- **OpenCorporates / company registries** — for entity/existence proof.
+
+Reasoning: my original 5 leaned on filings and news; adding people-driven and hiring-driven sources widens discovery toward exactly the invisible SFOs the assessment values most, and further guards against single-source bias.
+
 ---
 
 ## 2026-07-27 — Verification approach
