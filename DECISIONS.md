@@ -43,3 +43,14 @@ Rough and honest by design — not polished. Dated as decided.
 Flaws to surface in the assessment's own framing: (1) SFO contradiction — hidden firms vs rich-contact demand; (2) privacy sensitivity of collecting personal contacts (still collect, but note awareness, use public business contacts); (3) define our own explicit manual-vs-pipeline line (pipeline produces every record; humans only verify/reject, never create).
 
 Depth features to build: (4) epistemic layer — every cell tagged fact/inference/speculation + confidence + freshness date + source; (5) reachability/actionability score per record; (6) agentic 2-LLM grounding; (7) UI that shows its own uncertainty and declines honestly.
+
+---
+
+## 2026-07-27 — Dataset schema
+
+**Decision:** Per-record fields grouped as: firm identity + type (with type_evidence for Rule-2 proof), entity intelligence (AUM, thesis, mandate, background), principal decision-maker (name, title, LinkedIn, email, phone), recent dated signals (signal, date, type), epistemic+provenance layer per high-value cell (source, confidence, fact/inference/speculation, verify-method, as-of date), and product scoring (reachability_score, record_status).
+
+**Provenance format:** separate columns per cell (not JSON) — evaluators can check a cell's basis fast.
+
+**Reachability score:** combines BOTH contactability (email/phone present) AND freshness (recent dated signal) — a record is actionable only if you can both reach them and have a reason to reach them now. Exact weights to tune during build.
+
