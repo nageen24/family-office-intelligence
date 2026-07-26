@@ -29,6 +29,25 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — Standout additions I'm committing to (depth, not padding)
+
+1. **Rejection log.** I keep every firm my system found but *threw out*, each with a reason (couldn't confirm it's an FO / email bounced / MFO-relabel risk / duplicate). The doc says validation that doesn't change what you deliver "is not validation, only measurement" — the rejection log is my proof the validation actually changed the output. Most candidates show only the 50 winners; I show the discards too.
+
+2. **Adversarial RAG test set.** A deliberate set of "trap" questions built to make the system lie, over-claim, or answer beyond the data — with recorded proof it qualified or declined instead. This tests the *answer* layer (not just the data layer) and demonstrates my agentic 2-LLM grounding control actually holds.
+
+3. **Dataset self-scorecard.** An honest one-page summary of my own product: % of records with verified email/phone, SFO vs MFO split, and the blind spots that remain. Self-grading the product rather than hiding its weak spots.
+
+4. **Written SFO proof-standard.** An explicit, stated evidence bar a firm must clear before I label it a single-family office — so "SFO" is a proven classification in my file, not a hopeful guess. Directly serves the assessment's stricter firm-level rule (Rule 2).
+
+## 2026-07-27 — Additional flaws I caught in the assessment's own framing
+
+(Adds to the three already noted: SFO-vs-contact contradiction, privacy silence, fuzzy manual-vs-pipeline line.)
+
+- **Existence-proof blind spot.** The assessment leans on "prove the firm exists/what it is," but family offices are largely *exempt* from SEC registration, so the most genuine SFOs are invisible to the very filing sources that "proof" usually relies on. Their framing quietly assumes findability that doesn't hold for the highest-value records — which is exactly why my discovery is weighted toward 990s, hiring signals, news, and people, not filings alone.
+- **Task 2 is framed as bait.** Stating that "all major LLMs failed catastrophically" is designed to provoke a generic, over-engineered answer. I read it as a prompt to diagnose the specific family-office-SaaS conversion problem before prescribing, and to refuse the reflexive playbook answer.
+
+---
+
 ## 2026-07-27 — Verification approach
 
 **Decision:** Each high-value cell (email, phone, LinkedIn, AUM) verified by a free-tier check + at least 1 independent free cross-check (firm site / LinkedIn / filing). Target $0 (assessment states no paid tools required). A verification tool is an instrument, not a discovery source.
