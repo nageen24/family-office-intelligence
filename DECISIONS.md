@@ -54,3 +54,15 @@ Depth features to build: (4) epistemic layer — every cell tagged fact/inferenc
 
 **Reachability score:** combines BOTH contactability (email/phone present) AND freshness (recent dated signal) — a record is actionable only if you can both reach them and have a reason to reach them now. Exact weights to tune during build.
 
+---
+
+## 2026-07-27 — Infrastructure / hosting (my call, after rejecting the initial AI plan)
+
+The AI first proposed hosting the frontend on Vercel with a **local embedding model** (torch/sentence-transformers), and later a Vercel-frontend + Render-backend split. I pushed back on both. My priority is a clean, smooth deployment with no platform-fighting and no surprises, so I made two changes:
+
+**1. Embeddings — hosted API, not a local model.** A local embedding model is heavy on memory, and free-tier hosts have very little RAM — that's a recipe for a service that chokes or crashes. I chose **Gemini's free embedding API** instead: it keeps the backend lightweight, deploys anywhere without memory limits, and stays $0. Tradeoff I accepted: a dependency on the free-tier rate limits and internet, which I judged acceptable for a 50-record dataset.
+
+**2. One platform — everything on Render.** Rather than splitting across Vercel + Render, I consolidated both the Next.js frontend and the FastAPI backend onto **Render** as two separate services. This gives me one place to manage, less context-switching and less mess, while still keeping the layers separated (two services, not one merged app). Tradeoff I accepted and will mitigate: Render's free tier sleeps after ~15 min idle (~50s cold start), which I'll handle with a keep-alive ping so the live demo stays responsive.
+
+**Final stack:** Python/FastAPI + Next.js, both on Render (free); embeddings via Gemini free API; Qdrant free vector DB; Gemini/Groq free LLM for the answer + reflection layers.
+
