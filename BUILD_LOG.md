@@ -84,6 +84,18 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 
 **Next:** re-run enrichment with 13F, then STRICT Rule-2 validation → dataset.csv + rejection_log.csv + SFO/MFO split.
 
+## Session 6 — 2026-07-28 — Recovering websites/emails + honest SFO reclassification
+
+**What the AI produced:** the 13F/registry pipeline results, and the honest report that website/email cells were nearly empty because every scripted search engine IP-blocks this environment (it tested 7; Bing served a Cloudflare bot-challenge). Its recommendation was to accept the gap and leave those cells blank marked "could not verify."
+
+**What I decided / changed on top of it:**
+- **I refused to stop at the blank.** My idea: a real browser isn't blocked (we'd used Chrome fine earlier), so route the website search *through Chrome* — drive Bing in a genuine browser session and read the result domains. That got us past the IP block that killed every API.
+- **My second idea: verify every result in code before trusting it.** Search top-hits are often the wrong company sharing a word (Looper→looper.com the film, Duquesne→finnotes, Genspring→truist). I had us add `verify_websites.py`: fetch each candidate directly, accept only if the firm's distinctive name + family-office context is on the page (or the domain itself proves it); scrape emails only from verified same-domain pages; MX-check them in validation.
+- Result: ~4 → ~29 verified websites, ~8 verified emails, zero false matches shipped. Unverifiable firms keep an honest "could not verify" blank (Rule 1 candor), never a guess.
+- **I also corrected an over-labeling error I'd approved earlier:** filing a 13F under a family-office name proves it's a family office, not a *single*-family one. Reclassified 13F-only firms from SFO to Unconfirmed — honest, avoids the "most serious error" of presenting an unconfirmed firm as a proven SFO.
+
+**Reasoning captured in DECISIONS.md (2026-07-28 entries), framed as my calls.**
+
 **Enrichment build + a real failure I hit:**
 - Found (by reading the code) that enrichment had no website-finding step and no AUM extraction. Chose DuckDuckGo for lookup (my call), built it + AUM extraction.
 - **DuckDuckGo turned out blocked** from this environment (202 anomaly on every variant; direct site fetch works, so only DDG search is blocked). Logged honestly.

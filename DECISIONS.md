@@ -48,6 +48,70 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-28 — Websites were blank; my browser-search + verification idea recovered them (my call)
+
+**Where the AI left it:** after the dataset stood at 66 records, the website and
+principal-email cells were almost entirely empty. The AI had exhausted every
+free scripted path and recommended I simply accept the gap — leave those cells
+honestly blank marked "could not verify." Its stated reason was real and I made
+it record it exactly: **every automated search engine blocks this environment.**
+The AI tested seven — Google, Bing, DuckDuckGo, Mojeek, Searx, Startpage,
+Ecosia — and all of them either returned a bot-challenge (Bing served a
+Cloudflare "verify you are human" page) or refused the request, because the
+pipeline runs from a datacenter-style IP that search engines fingerprint as a
+bot. Google's own console had earlier warned it "temporarily blocked your
+account or network due to excessive automated requests." So from a script, there
+was genuinely no way to look up a firm's website. Wikidata only covers famous
+firms and missed the mid-size family offices. The AI's honest position was:
+blank is candor, per Rule 1, and better than a wrong or guessed URL.
+
+**My decision — don't accept the blank yet.** I pointed out the thing the AI had
+missed: a *real* browser is not blocked. We had already used Chrome successfully
+earlier (on the Google console). My idea was to **route the search through the
+actual Chrome browser instead of a script** — drive Chrome to Bing, which
+renders real results in a genuine browser session (cookies, real fingerprint),
+and read the result links out of the page. That is exactly what we did: from a
+Bing tab, a same-origin fetch loop pulled the top organic result domain for each
+of the ~57 firms that still needed a website. The block was on scripted access,
+not on the browser, so this worked where every API had failed.
+
+**My second idea — never trust a search result on faith; verify it in code.**
+A search engine's top hit is often a different company that shares a word
+("Looper Family Office" returned looper.com, the film site; "Duquesne Family
+Office" returned finnotes.org; "Genspring" returned truist.com). Attaching those
+would be a wrong value, which the assessment says costs more than a blank. So I
+had us **write a Python verification pass** (`verify_websites.py`): for every
+candidate domain it fetches the site directly (direct site fetches *do* work from
+here — only search engines are blocked), and only accepts the website if the
+firm's own distinctive name token *and* family-office language actually appear on
+the page, or the domain itself proves it (e.g. biltmorefamilyoffice.com). Emails
+are then scraped only from those verified, same-domain pages, placeholders and
+cross-domain junk (user@domain.com, a font vendor's address) are filtered, and
+every surviving email is MX-checked in validation — a dead mailbox is dropped.
+
+**Result:** website coverage went from ~4 (Wikidata only) to **~29 verified
+real sites**, plus **~8 verified business emails** — Callan, Colony, Geller,
+Pathstone, Marcuard, Stenger (a real named principal address), QVT, Deutsche
+Oppenheim and more. Every false match the search engine offered was caught and
+rejected by the verification pass rather than shipped.
+
+**What stays blank, and why (Rule 1, honestly):** the firms the verification
+could not confirm — genuine single-family offices with no website, or where the
+only candidate was an unrelated company — keep an **empty cell marked "could not
+verify."** That is deliberate. The assessment states a cell you cannot verify may
+be left honestly blank and marked so, and that this is scored as candor, whereas
+a guessed value dressed as verified is disqualifying. I would rather show a blank
+I can defend than a website I cannot stand behind.
+
+**Provenance written on every recovered cell:** website = "found via Bing in a
+real browser, verified by direct-fetch firm-name + family-office match"; email =
+"scraped from the verified firm site, MX-checked." Where it came from and how it
+was confirmed is on the record, per Rule 1. The records remain pipeline-produced:
+the browser was only the transport that got past the IP block; the discovery,
+verification, and scraping are all code, not hand-compilation.
+
+---
+
 ## 2026-07-27 — Possessive-SFO rule, the existence gate, and the CIK-registry anchor source (my calls)
 
 Three linked decisions from the first strict validation runs:
@@ -171,6 +235,21 @@ I originally planned 8 discovery sources, including LinkedIn, job boards, and co
 **Decision:** Use an agentic two-LLM validation (Andrew Ng reflection pattern): LLM1 answers from retrieved records; LLM2 verifies each claim against the records and forces refine / qualify / decline when evidence is insufficient. Layer with a retrieval-score gate and a claim-to-citation check.
 
 **Reasoning:** Prompt instructions alone don't prove the model obeys — a mechanical control does.
+
+## 2026-07-28 — The grounding control, in my own words (my decision, expanded before building the RAG)
+
+The assessment says (its words): "Prompt instructions alone are not enough... Your system must include a working control that... causes the system to qualify, limit, or decline an answer when the evidence is insufficient. What that control is, and how it works, is your design decision." That last line is the opening — the *how* is mine to choose, and I chose an **agentic two-LLM design based on Andrew Ng's agentic-AI course (the reflection / evaluator pattern)**. Here is the mechanism in plain terms, as I decided it:
+
+- **LLM-1 is the answerer.** It reads only the records the retrieval layer returned and writes a draft answer for the user.
+- **LLM-2 is the checker** — a *second* model that never sees the user, only LLM-1's draft plus the same source records. Its one job is to compare the draft against the records and ask: did LLM-1 invent anything, or claim more than the data shows?
+- **LLM-2 returns one of three verdicts before anything reaches the user:**
+  - **Approve** — every claim is supported → the answer is sent.
+  - **Refine** — mostly right but overstated → it is rewritten to only what the records support, then sent.
+  - **Decline** — the records don't actually support a confident answer → the user is told honestly "I can't answer that confidently from the data," instead of a guess.
+
+**So the user never sees a raw, unchecked answer — a second AI guards the gate. That is the whole point: it mechanically stops the system from lying,** which a prompt cannot guarantee. I layer a cheap **retrieval-score gate** in front of it (if nothing retrieved is relevant enough, decline before spending the LLMs) so the expensive check only runs when there's something to check.
+
+Why this is *my* decision and not a checklist item: the doc demands *a* control but explicitly leaves the design to the candidate; the two-LLM reflection pattern is the specific answer I brought to it, and I can defend why (a self-check by the same model in one pass is weaker — a separate evaluator with a narrow, adversarial mandate catches more). This maps one-to-one onto the doc's required "qualify / limit / decline."
 
 ---
 

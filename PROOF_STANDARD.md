@@ -57,6 +57,20 @@ Every high-value cell (email, phone, LinkedIn, AUM, thesis, signal) carries:
   the specific mailbox exists.
 - **Phone / others:** kept only with a source; format-checked; low confidence
   when scraped from a single page without a second source.
+- **Website:** every scripted search engine IP-blocks this environment (tested
+  seven; Bing returned a Cloudflare bot-challenge), so candidate sites were
+  found via Bing rendered in a **real browser**, then **verified in code**
+  before being trusted: the candidate domain is fetched directly and accepted
+  only if the firm's own distinctive name token *and* family-office context
+  appear on the page, or the domain itself proves it (e.g.
+  `biltmorefamilyoffice.com`). This is why wrong-company collisions
+  (Duquesne→finnotes, Looper→the film site, Genspring→truist) were rejected,
+  not shipped. Method recorded on the cell: "Bing-found in a real browser,
+  verified by direct-fetch firm-name + family-office match."
+- **Email:** scraped only from a **verified** firm site, restricted to the
+  site's own registrable domain (a font vendor's address on the page is not the
+  firm's email), placeholders filtered (`user@domain.com`), then **MX-checked**
+  in validation — a domain with no mail server is dropped from the record.
 
 ## Honest blank over fake (the rule I refuse to break)
 
