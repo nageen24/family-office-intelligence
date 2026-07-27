@@ -236,6 +236,19 @@ I originally planned 8 discovery sources, including LinkedIn, job boards, and co
 
 **Reasoning:** Prompt instructions alone don't prove the model obeys — a mechanical control does.
 
+## 2026-07-28 — Test every RAG piece to catch errors before they ship (my instruction)
+
+I directed that each part of the RAG be **tested as it was built**, not "written and hoped", specifically to catch errors early instead of discovering them in the live demo. The assessment scores validation and warns that every capability claim must reconcile with the artifacts — a test that actually runs green is that reconciliation, not a claim. So each component was built test-first: write the check, watch it fail, implement, watch it pass, commit.
+
+**The 15 automated tests and what each guards against:**
+- **Ingest (2):** the record blurb includes the firm's real facts; the filter metadata flags has-email/has-phone correctly — guards against embedding empty or wrong text.
+- **Retrieve (2):** a relevant query returns hits; an off-topic query is *gated* (declined) — guards against answering from nothing.
+- **Answer / grounding (6):** the 2-LLM control approves a supported answer, refines an overstated one, and **declines** when the validator rejects it or the query is empty/no-match; an LLM outage returns the honest `error` state, not a fake decline — guards against the single most important failure, the system inventing facts.
+- **Failover (3):** when Groq fails the call reaches the OpenRouter backup; only if *both* fail does it raise; no keys configured raises clearly — guards against a provider outage taking the whole system down.
+- **API (2):** health responds; the answer endpoint returns the verdict — guards the deployable surface.
+
+This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
+
 ## 2026-07-28 — Two-provider LLM failover as error handling (my decision)
 
 The assessment stresses failure handling — the system must "behave sensibly whether a query succeeds, finds nothing, finds partial data, or fails," and a failure must return a readable message, not an error dump. The obvious failure I wanted covered is the one that would take the whole answer layer down: **the LLM provider going out.** Both LLM-1 and LLM-2 run on Groq; if Groq is down, rate-limited, or returns an error, every answer would fail at once.
