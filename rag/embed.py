@@ -6,18 +6,22 @@ network at query time.
 """
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import List
 
 import numpy as np
 
 MODEL_NAME = "minishlab/potion-base-8M"
+# Bundled copy in the repo -> no HuggingFace download at runtime (works on
+# Vercel serverless / offline). Falls back to the hub name if the dir is absent.
+_LOCAL = os.path.join(os.path.dirname(__file__), "models", "potion-base-8M")
 
 
 @lru_cache(maxsize=1)
 def _model():
     from model2vec import StaticModel
-    return StaticModel.from_pretrained(MODEL_NAME)
+    return StaticModel.from_pretrained(_LOCAL if os.path.isdir(_LOCAL) else MODEL_NAME)
 
 
 def embed(texts: List[str]) -> np.ndarray:

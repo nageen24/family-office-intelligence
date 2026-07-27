@@ -1,0 +1,8 @@
+# Lean runtime deps for the Vercel serverless function (RAG only, not the pipeline).
+# The full pipeline deps live in the repo-root requirements.txt.
+fastapi>=0.110
+qdrant-client>=1.9
+model2vec>=0.3
+numpy>=1.26
+requests>=2.31
+python-dotenv>=1.0
