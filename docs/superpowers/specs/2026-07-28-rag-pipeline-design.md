@@ -95,9 +95,12 @@ Every non-happy path returns a plain-English message, never an error dump:
 
 ## 8. Stack (provider) — decision & fallback
 
-- **LLMs:** **Groq** (free, no card, fast, and — importantly — *not* Google, so
-  it dodges the IP-flag that blocked us earlier). LLM-1 and LLM-2 both on Groq
-  (`llama-3.3-70b`). This keeps the critical answer path off Google.
+- **LLMs:** **Groq primary + NVIDIA NIM failover** (candidate decision, logged).
+  LLM-1 and LLM-2 both call a chain: Groq (`llama-3.3-70b-versatile`) first, and
+  on any Groq failure the same call falls over to NVIDIA
+  (`meta/llama-3.3-70b-instruct`). Two independent providers = no single point of
+  failure; only if both fail does the user get the honest `error` state. Neither
+  is Google, so both dodge the IP-flag that blocked earlier search work.
 - **Embeddings:** **local `all-MiniLM-L6-v2`** (sentence-transformers, ~80MB) —
   keyless, no Google dependency, computes 66 vectors once and only embeds the
   short user query at runtime (light enough for a free-tier host). Gemini
