@@ -14,8 +14,19 @@ requires.
 """
 from __future__ import annotations
 
-from rag.retrieve import retrieve
+from functools import lru_cache
+
+from rag.retrieve import retrieve, _client, COLLECTION
 from rag.llm import chat as _chat
+
+
+@lru_cache(maxsize=1)
+def corpus_size() -> int:
+    """Total records in the dataset (not the retrieved slice)."""
+    try:
+        return int(_client().count(COLLECTION).count)
+    except Exception:
+        return 0
 
 # Distinct user-facing states (assessment: success / empty / partial / failure),
 # each rendered differently by the UI. `verdict` stays for the answer path.
@@ -30,14 +41,22 @@ ERROR_MSG = ("Our answering service is momentarily unavailable — this is on ou
 
 ANSWERER_SYS = (
     "You are a family-office intelligence assistant for an investor-relations "
-    "professional. Answer ONLY from the records provided. If a specific fact is "
-    "not present in the records, say it is not available — never invent names, "
-    "emails, phone numbers, or figures. Be concise and plain-English; do not "
-    "expose internal field names or jargon.")
+    "professional. The full dataset contains {total} verified family offices; "
+    "for each question you are shown only the most relevant records, NOT all "
+    "{total}. So never state or imply that the dataset only contains the number "
+    "of records shown to you — if asked how many family offices exist in total, "
+    "the answer is {total}. Answer ONLY from the records provided. If a specific "
+    "fact is not present in the records, say it is not available — never invent "
+    "names, emails, phone numbers, or figures. Be concise and plain-English; do "
+    "not expose internal field names or jargon.")
 
 VALIDATOR_SYS = (
-    "You audit a draft answer against the source records it was based on. Be "
-    "strict. Reply with exactly one of:\n"
+    "You audit a draft answer against the source records it was based on. The "
+    "full dataset contains {total} verified family offices (a known fact you may "
+    "accept), and the answerer was shown only the most relevant subset — so do "
+    "NOT decline an answer merely for stating the dataset has {total} family "
+    "offices, or for not listing all of them. Be strict about everything else. "
+    "Reply with exactly one of:\n"
     "  'APPROVE' — every claim in the draft is directly supported by the records.\n"
     "  'REFINE: <corrected answer>' — the draft is mostly right but overstates or "
     "adds something unsupported; give the corrected, fully-supported answer.\n"
@@ -74,10 +93,11 @@ def answer(query: str) -> dict:
 
     ctx = _context(r["hits"])
     sources = [h.get("firm_name") for h in r["hits"]]
+    answerer_sys = ANSWERER_SYS.format(total=corpus_size() or "the")
 
     try:
-        draft = _chat(ANSWERER_SYS, f"Records:\n{ctx}\n\nQuestion: {query}")
-        verdict = _chat(VALIDATOR_SYS,
+        draft = _chat(answerer_sys, f"Records:\n{ctx}\n\nQuestion: {query}")
+        verdict = _chat(VALIDATOR_SYS.format(total=corpus_size() or "the"),
                         f"Records:\n{ctx}\n\nQuestion: {query}\n\nDraft answer: {draft}")
     except Exception:
         # LLM/network failure is OUR problem — say so, don't fake a decline.

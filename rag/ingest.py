@@ -15,19 +15,34 @@ from typing import List
 
 
 def record_to_blurb(row: dict) -> str:
-    """Human-readable prose per firm — this is what gets embedded/searched."""
+    """Human-readable prose per firm — this is the text embedded AND handed to
+    the answer LLM, so it must carry every high-value cell the CSV holds
+    (especially the contact intel), or the RAG can't answer questions about it.
+    """
     parts = [f"{row['firm_name']} is a family office "
              f"(type: {row.get('firm_type') or 'Unconfirmed'})."]
     if row.get("hq_location"):
-        parts.append(f"Located in {row['hq_location']}.")
+        parts.append(f"Located at {row['hq_location']}.")
     if row.get("aum"):
         parts.append(f"Reported AUM: {row['aum']}.")
     if row.get("principal_name"):
-        parts.append(f"Principal: {row['principal_name']}.")
+        parts.append(f"Principal / key contact: {row['principal_name']}.")
     if row.get("principal_title"):
-        parts.append(f"Key contact title: {row['principal_title']}.")
+        parts.append(f"Contact title: {row['principal_title']}.")
+    if row.get("principal_phone"):
+        parts.append(f"Phone: {row['principal_phone']}.")
+    if row.get("principal_email"):
+        parts.append(f"Email: {row['principal_email']}.")
+    if row.get("website"):
+        parts.append(f"Website: {row['website']}.")
+    if row.get("corporate_linkedin"):
+        parts.append(f"LinkedIn: {row['corporate_linkedin']}.")
     if row.get("investing_thesis"):
         parts.append(f"Investing focus: {row['investing_thesis']}.")
+    if row.get("mandate"):
+        parts.append(f"Investing mandate: {row['mandate']}.")
+    if row.get("background"):
+        parts.append(f"Background: {row['background']}.")
     if row.get("recent_signal"):
         parts.append(f"Recent activity: {row['recent_signal']}.")
     return " ".join(parts)
