@@ -19,6 +19,7 @@ from bs4 import BeautifulSoup
 
 from pipeline.discovery.base import DiscoverySource  # for session/UA reuse
 from pipeline.enrichment.website_finder import find_website
+from pipeline.enrichment.sec_filing import enrich_from_sec
 from pipeline.schema import CandidateFirm, Cell, Epistemic, Confidence
 
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
@@ -136,7 +137,8 @@ def enrich_firm(firm: CandidateFirm) -> CandidateFirm:
 def enrich_all(pool: List[CandidateFirm]) -> List[CandidateFirm]:
     for i, firm in enumerate(pool, 1):
         try:
-            enrich_firm(firm)
+            enrich_from_sec(firm)   # official filing data first (no key, no guess)
+            enrich_firm(firm)       # then website scrape (needs a found site)
         except Exception as e:
             print(f"[enrich] {firm.firm_name}: {e}")
         if i % 10 == 0:

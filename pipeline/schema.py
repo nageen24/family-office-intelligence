@@ -70,6 +70,7 @@ class CandidateFirm:
     website: Optional[str] = None
     hq_location: Optional[str] = None
     corporate_linkedin: Optional[str] = None
+    cik: Optional[str] = None              # SEC CIK, when discovered via EDGAR
 
     # --- entity intelligence (high-value cells) ---
     aum: Cell = field(default_factory=Cell)

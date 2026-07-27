@@ -65,3 +65,10 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 - **My decision:** do BOTH, no guessing — (1) a *real* search via a free Google Programmable Search key, and (2) filing-based enrichment (pull principal names/address/phone straight from SEC ADV + Form 990, which also covers no-website SFOs). Email stays an honest blank when unknown.
 
 **Next:** build the filing-based enrichment (#2, no key needed) + the Google search connector (#1, awaiting a free key), then run enrichment.
+
+**Built #2 (filing-based enrichment) — works:**
+- Captured the SEC CIK at discovery (it was in `display_names` all along, being thrown away). 80/233 firms now carry a CIK.
+- Added `sec_filing.py`: pulls official business phone + address + industry from SEC's submissions JSON (no key), stamped FACT/high confidence because it's an official filing. Tested on 8 firms: **8/8 got a real phone + address** (e.g. Longboat Family Office 212-798-1362, EMFO 954-385-9624). This is the honest no-website answer — real source-backed contacts, never guessed.
+- Added AUM extraction (only accepts a $-figure sitting next to asset/AUM/manage language).
+
+**Still pending:** (a) git re-auth as nageen24 (push denied to ewd-ai; commits safe locally); (b) the free Google search key for #1 (website scraping — DDG blocked here). Full enrichment run waits on the Google key so the website-based contacts are real too.

@@ -10,10 +10,20 @@ from __future__ import annotations
 
 from typing import List
 
+import re
 from urllib.parse import quote_plus
 
 from pipeline.discovery.base import DiscoverySource, register
 from pipeline.schema import CandidateFirm
+
+_CIK_RE = re.compile(r"CIK\s*0*(\d+)", re.I)
+
+
+def _cik_from_name(display_name: str):
+    """display_names look like 'Firm Name (CIK 0001234567)'."""
+    m = _CIK_RE.search(display_name)
+    return m.group(1).zfill(10) if m else None
+
 
 EFTS = "https://efts.sec.gov/LATEST/search-index?q={q}&from={frm}"
 # Wide net (option 1): several phrasings + pagination for more real throughput.
@@ -44,13 +54,20 @@ class SecEdgar(DiscoverySource):
                 if not hits:
                     break
                 for h in hits:
-                    names = (h.get("_source", {}) or {}).get("display_names") or []
-                    for nm in names:
+                    src = h.get("_source", {}) or {}
+                    # EFTS also returns the CIK(s) directly; keep for enrichment.
+                    ciks = src.get("cik") or []
+                    if isinstance(ciks, str):
+                        ciks = [ciks]
+                    names = src.get("display_names") or []
+                    for idx, nm in enumerate(names):
                         clean = nm.split("(")[0].strip()
                         if clean and clean.lower() not in seen:
                             seen.add(clean.lower())
+                            cik = _cik_from_name(nm) or (ciks[idx] if idx < len(ciks) else None)
                             out.append(CandidateFirm(
                                 firm_name=clean,
                                 discovery_source=self.name,
+                                cik=cik,
                             ))
         return out[:limit]
