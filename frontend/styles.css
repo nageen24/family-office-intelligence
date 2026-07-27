@@ -12,7 +12,9 @@ body{
 }
 .wrap{max-width:760px; margin:0 auto; padding:48px 20px 80px}
 .head h1{font-size:1.7rem; margin:0 0 6px; letter-spacing:-.02em}
-.sub{color:var(--muted); margin:0 0 28px}
+.sub{color:var(--muted); margin:0 0 6px}
+.corpus{color:var(--muted); font-size:.85rem; margin:0 0 26px}
+.corpus strong{color:var(--ink)}
 
 .searchbar{display:flex; gap:10px}
 #q{

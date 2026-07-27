@@ -36,3 +36,5 @@ assessment/
 *assessment*.docx
 data/rag/
 .pytest_cache/
+
+.vercel

@@ -42,7 +42,7 @@ def _filters(query: str):
     return Filter(must=conds) if conds else None
 
 
-def retrieve(query: str, k: int = 5, min_score: float = 0.25) -> dict:
+def retrieve(query: str, k: int = 8, min_score: float = 0.25) -> dict:
     """Return {"hits": [payload...], "top_score": float, "gated": bool}.
 
     gated=True means nothing cleared the score gate — the answer layer should
