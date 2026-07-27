@@ -48,6 +48,34 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — DuckDuckGo blocked; I rejected domain-guessing and chose real search + filing-based enrichment (my call)
+
+When I actually ran the DuckDuckGo lookup I'd chosen, it failed: DDG returns a 202 "anomaly" bot-block for this environment's IP on every variant (html/lite, GET/POST, full browser headers). A direct fetch of a known firm site (pathstone.com → 200) proved the internet itself works — only the DDG *search* step is blocked. So my first pick genuinely failed in practice; recording that honestly rather than hiding it.
+
+**What the AI then suggested:** as a keyless fallback, *guess* likely domains for each firm (e.g. `duquesnefamilyoffice.com`), fetch them, and accept a domain only if the page actually mentions the firm ("guess + verify"). It also offered a free search API key, or doing both.
+
+**My decision:** I **rejected the domain-guessing approach**, even the verified version. My reasoning: guessing isn't how you'd honestly find a firm — verifying after the fact still starts from a fabricated address, it would quietly attach wrong domains to some firms, and it cuts against the same honesty line that governs this whole build (honest blank over invented value). I'd rather have no website than a guessed one.
+
+**What I chose instead — both of these, no guessing:**
+1. **A real search via a free Google Programmable Search key** (free tier, no credit card) to look up each firm's *actual* website, then scrape it. A real lookup, not a guess. Adds one free key — acceptable because it's still $0 and it's a genuine search, unlike guessing.
+2. **Filing-based enrichment that needs no search at all** — SEC ADV and Form 990 filings themselves carry principal/officer names, addresses, and sometimes phones (and a 990's trustees are usually the family behind the SFO). I pull that straight from the source we already have. This is the honest answer to the "hidden SFO with no website" case: real names/location/phone from filings, email left an honest blank, reachability scored low on contactability — never a guessed contact.
+
+**Why both:** #2 is free intel we were leaving on the table and works even for no-website SFOs; #1 raises website/email coverage for the firms that do have sites. Neither invents anything.
+
+---
+
+## 2026-07-27 — Enrichment website lookup + AUM gap (my call)
+
+Reading the enrichment code before running it, I found two honest gaps: (1) it assumes each firm's website is already known, but nothing ever finds it — so as written it would return blanks for almost everyone; (2) it never extracts AUM, a high-value column.
+
+**The AI offered three ways to find firm websites:** (1) DuckDuckGo free HTML search (no key, ToS-OK); (2) a free-tier search API key (Brave, ~2000/mo); (3) skip lookup and accept mostly-blank contacts.
+
+**My decision: Option 1 — DuckDuckGo free search.** Reasoning: it needs zero signup and zero key, which keeps the build faithful to the assessment's "no paid tools, every capability has a free tier" rule and to the same ToS-respecting line that made me drop LinkedIn/Google scraping earlier — I want to stay consistent, not carve an exception. The one real risk is rate-limiting across 233 firms, which I accept and mitigate with polite delays + a local website cache (never re-fetch the same firm). If DuckDuckGo turns out to block too hard in practice, my fallback is a free search key (option 2) — but only *after* DDG genuinely fails, and I'll log that as a real finding rather than pre-optimize. I also asked the AI to fix the missing AUM extraction in the same pass.
+
+**Honest expectation:** the most genuine SFOs have no website at all, so many of the highest-value firms will still carry blank contacts by design (the honest-blank rule) — DDG can't invent a site that doesn't exist. That's expected, not a failure.
+
+---
+
 ## 2026-07-27 — First real discovery run + how to handle the noise (my call)
 
 Ran discovery for the first time (no API keys needed). Raw yield: **120 unique candidates** — SEC EDGAR 40, ProPublica 990 40, Google News 40, OpenCorporates 0 (free tier returns 401 without a token; logged honestly, not faked).

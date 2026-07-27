@@ -57,3 +57,11 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 - Left the residual news fragments in on purpose: they're what validation + the rejection log are for.
 
 **Next:** enrichment (AUM/thesis/contacts + dated signals), then Rule-2 validation → dataset.csv + rejection_log.csv + scorecard.
+
+**Enrichment build + a real failure I hit:**
+- Found (by reading the code) that enrichment had no website-finding step and no AUM extraction. Chose DuckDuckGo for lookup (my call), built it + AUM extraction.
+- **DuckDuckGo turned out blocked** from this environment (202 anomaly on every variant; direct site fetch works, so only DDG search is blocked). Logged honestly.
+- AI suggested a keyless "guess-the-domain + verify" fallback. **I rejected guessing** as dishonest even when verified — see DECISIONS.md. 
+- **My decision:** do BOTH, no guessing — (1) a *real* search via a free Google Programmable Search key, and (2) filing-based enrichment (pull principal names/address/phone straight from SEC ADV + Form 990, which also covers no-website SFOs). Email stays an honest blank when unknown.
+
+**Next:** build the filing-based enrichment (#2, no key needed) + the Google search connector (#1, awaiting a free key), then run enrichment.

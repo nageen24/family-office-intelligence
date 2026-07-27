@@ -18,6 +18,7 @@ from typing import List, Optional
 from bs4 import BeautifulSoup
 
 from pipeline.discovery.base import DiscoverySource  # for session/UA reuse
+from pipeline.enrichment.website_finder import find_website
 from pipeline.schema import CandidateFirm, Cell, Epistemic, Confidence
 
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
@@ -25,8 +26,28 @@ PHONE_RE = re.compile(r"(?:\+?\d{1,2}[\s.\-]?)?(?:\(?\d{3}\)?[\s.\-]?)\d{3}[\s.\
 LINKEDIN_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/(?:company|in)/[A-Za-z0-9\-_%]+")
 THESIS_WORDS = ("invest", "focus", "sector", "strategy", "portfolio",
                 "allocation", "direct", "private", "venture", "real estate")
+# AUM figure: "$1.2 billion", "$500 million", "$3bn" etc.
+AUM_RE = re.compile(
+    r"\$\s?\d[\d,]*(?:\.\d+)?\s*(?:trillion|billion|million|bn|mn|tn|b|m)\b",
+    re.I,
+)
+AUM_CONTEXT = ("asset", "aum", "manage", "under management", "capital")
 
 _http = DiscoverySource()  # reuse its polite session
+
+
+def _extract_aum(page_text: str) -> Optional[str]:
+    """Return an AUM figure only when it sits near asset/AUM/manage language.
+
+    A raw dollar figure alone (a deal size, a price) is not AUM, so we require
+    nearby context — otherwise the cell stays blank (honest over fake).
+    """
+    low = page_text.lower()
+    for m in AUM_RE.finditer(page_text):
+        window = low[max(0, m.start() - 60): m.end() + 60]
+        if any(w in window for w in AUM_CONTEXT):
+            return m.group(0).strip()
+    return None
 
 
 def _fetch(url: str) -> Optional[BeautifulSoup]:
@@ -45,7 +66,12 @@ def _first(regex, text) -> Optional[str]:
 def enrich_firm(firm: CandidateFirm) -> CandidateFirm:
     url = firm.website
     if not url:
-        # No website found is common for SFOs — honest blank, not invented.
+        # Try to find the official site (DuckDuckGo, cached). Many genuine SFOs
+        # have none — that returns None and the cell stays an honest blank.
+        url = find_website(firm.firm_name)
+        if url:
+            firm.website = url
+    if not url:
         return firm
     if not url.startswith("http"):
         url = "https://" + url
@@ -64,6 +90,13 @@ def enrich_firm(firm: CandidateFirm) -> CandidateFirm:
         firm.background = Cell(value=desc.strip(), source=url,
                                method="site homepage / meta description",
                                epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM)
+
+    # AUM (only when near asset/AUM/manage language)
+    aum = _extract_aum(page_text)
+    if aum:
+        firm.aum = Cell(value=aum, source=url,
+                        method="site copy near AUM/assets language (unverified)",
+                        epistemic=Epistemic.INFERENCE, confidence=Confidence.LOW)
 
     # investing thesis hint
     for p in soup.find_all(["p", "li"]):
