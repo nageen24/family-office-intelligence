@@ -48,6 +48,16 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — Dropped LinkedIn / job boards / conferences as discovery sources (my call)
+
+I originally planned 8 discovery sources, including LinkedIn, job boards, and conference/podcast lists. When it came to building them I hit a wall: automated scraping of those sites violates their ToS and is actively blocked, so any scraper would either return nothing or need me to hand-collect firms into a file. The assessment explicitly forbids manual compilation of records (only manual spot-checks/judgment calls are allowed), and I refuse to fill the dataset with fake or hand-assembled entries just to inflate the source count.
+
+**Decision:** remove those sources entirely rather than fake coverage or smuggle in manual compilation. I'd rather stand on fewer, genuinely automated sources than claim breadth I didn't earn. The pipeline now discovers from **4 clean automated source classes** — SEC EDGAR, ProPublica 990 (family foundations), Google News, OpenCorporates — which are still genuinely diverse (regulatory filings, nonprofit filings, press, and company registries), so this is real multi-source discovery, not one source copied at scale.
+
+**Tradeoff / uncertainty I accept:** fewer sources could mean fewer raw candidates; if 4 sources don't yield 50 qualifying records, I'll widen queries within these sources before I ever add a fake or manual one. Honesty of the file comes first.
+
+---
+
 ## 2026-07-27 — Verification approach
 
 **Decision:** Each high-value cell (email, phone, LinkedIn, AUM) verified by a free-tier check + at least 1 independent free cross-check (firm site / LinkedIn / filing). Target $0 (assessment states no paid tools required). A verification tool is an instrument, not a discovery source.

@@ -6,4 +6,3 @@ from pipeline.discovery import sec_edgar        # noqa: F401
 from pipeline.discovery import propublica_990    # noqa: F401
 from pipeline.discovery import news              # noqa: F401
 from pipeline.discovery import opencorporates    # noqa: F401
-from pipeline.discovery import supplementary     # noqa: F401
