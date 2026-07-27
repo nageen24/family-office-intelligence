@@ -23,3 +23,16 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 **Decisions log:** see `DECISIONS.md`. **Spec:** see `docs/superpowers/specs/2026-07-27-family-office-rag-design.md`.
 
 **Next session:** build the dataset pipeline first (discovery → enrichment → validation).
+
+---
+
+## Session 2 — 2026-07-27 — Dataset pipeline build
+
+**What the AI produced:** the full pipeline scaffold and code — shared schema, 5 discovery modules, enrichment scraper, validation engine, orchestrator, PROOF_STANDARD.md. For the ToS-restricted sources (LinkedIn, job boards, conferences) the AI proposed keeping them as a "manual-leads" channel (a CSV I'd fill by hand that then flows through the pipeline).
+
+**What I decided / changed on top of it:**
+- **Rejected the manual-leads workaround.** The assessment forbids manual compilation of records, and I don't want any fake or hand-assembled entries padding the file just to claim more sources. I told the AI to remove those sources entirely and document why, rather than fake coverage.
+- Chose to stand on **4 genuinely automated, diverse sources** (SEC EDGAR, ProPublica 990, Google News, OpenCorporates) and, if they don't yield 50, to widen queries within them before ever adding a fake or manual source.
+- Reasoning captured in DECISIONS.md; honesty of the dataset takes priority over source count.
+
+**Next:** run the pipeline (discovery first, no keys needed) and see the real candidate yield before enrichment.
