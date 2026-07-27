@@ -29,6 +29,11 @@ from pipeline.schema import (CandidateFirm, Cell, FirmType, Confidence, Epistemi
 TODAY = date.today().isoformat()
 
 # --- firm-type evidence markers -------------------------------------------------
+# RULE 2 (strict, per the assessment): a firm does NOT qualify merely because
+# its name contains family-office words, it serves wealthy clients, or it
+# appeared in an FO-associated source. We require AFFIRMATIVE evidence from an
+# independent basis: an official filing under an FO name, or FO self-description
+# / press description in gathered text. Name alone => Unconfirmed => Rejected.
 SFO_MARKERS = [
     "single family office", "single-family office", "our family",
     "one family", "family's capital", "we are the family office",
@@ -39,28 +44,43 @@ MFO_MARKERS = [
     "our clients", "become a client", "client login", "fee schedule",
     "wealth management services", "advisory services", "onboarding",
 ]
-FO_MARKERS = ["family office", "wealth", "family capital", "family investment"]
 
 
 def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
-    """Return (type, evidence) from whatever text we gathered."""
+    """Return (type, evidence). Evidence must be independent of the name."""
+    name_says_fo = "family office" in (firm.firm_name or "").lower()
+
+    # Text gathered ABOUT the firm (site copy, filing record, news headline) —
+    # deliberately excludes the firm's own name, which proves nothing.
     blob = " ".join([
         firm.background.value or "",
         firm.investing_thesis.value or "",
-        firm.firm_name or "",
+        firm.mandate.value or "",
+        firm.recent_signal.value or "",
     ]).lower()
+
+    # Strongest basis: an official SEC filing made under a family-office name
+    # (13F/EDGAR — set by enrichment into type_evidence). FOs are ADV-exempt
+    # but not 13F-exempt, so this is affirmative federal evidence.
+    filed_as_fo = bool(firm.type_evidence and "13F" in firm.type_evidence)
 
     sfo_hits = [m for m in SFO_MARKERS if m in blob]
     mfo_hits = [m for m in MFO_MARKERS if m in blob]
-    fo_hits = [m for m in FO_MARKERS if m in blob]
+    press_fo = "family office" in blob  # independent text calls it an FO
 
-    if sfo_hits and not mfo_hits:
-        return FirmType.SFO, f"SFO markers: {sfo_hits}"
     if mfo_hits:
-        return FirmType.MFO, f"MFO markers: {mfo_hits}"
-    if fo_hits:
-        # Looks like an FO but type is genuinely unclear — say so (allowed).
-        return FirmType.UNCONFIRMED, f"FO language but type unclear: {fo_hits}"
+        return FirmType.MFO, f"MFO evidence in gathered text: {mfo_hits}"
+    if sfo_hits:
+        return FirmType.SFO, f"SFO evidence in gathered text: {sfo_hits}"
+    if filed_as_fo:
+        # Official filing under an FO name + no multi-client evidence anywhere.
+        # SFO is the honest read (an MFO markets itself; this firm files 13F
+        # as a family office and shows no client-serving language).
+        return FirmType.SFO, firm.type_evidence
+    if press_fo and name_says_fo:
+        # Independent press/filing text describes it as a family office.
+        return FirmType.UNCONFIRMED, (
+            "described as family office in gathered text; SFO/MFO split unproven")
     return FirmType.UNCONFIRMED, "no affirmative family-office evidence found"
 
 
@@ -148,7 +168,10 @@ def validate_all(pool: List[CandidateFirm], min_score: int = 20) -> List[Candida
 
         firm.reachability_score = reachability(firm)
 
-        # Qualification decision.
+        # Qualification decision (Rule 2 is the gate, thinness second).
+        # Distinction the assessment draws: a firm whose FO-ness we cannot
+        # establish does NOT qualify; a proven FO whose SFO/MFO split is
+        # unclear may qualify with the type stated honestly as Unconfirmed.
         if ftype == FirmType.UNCONFIRMED and "no affirmative" in evidence:
             firm.record_status = "Rejected"
             firm.rejection_reason = "Rule 2: no affirmative family-office evidence"
