@@ -80,11 +80,26 @@ def _domain(url: str) -> str:
 
 
 def find_website(firm_name: str, *, delay: float = 1.5) -> Optional[str]:
-    """Return the firm's best-guess official homepage URL, or None.
+    """Return the firm's official homepage URL, or None.
 
-    Cached per firm_name. A None result is cached too (as "") so we don't retry
-    a firm that genuinely has no findable site.
+    Dispatcher: prefer Google Programmable Search when GOOGLE_API_KEY +
+    GOOGLE_CSE_ID are configured (a real search); otherwise fall back to the
+    DuckDuckGo scrape. Both share one cache. A None result is cached (as "") so
+    a firm with no findable site is never re-queried. Never invents a URL.
     """
+    key = firm_name.strip().lower()
+    if key in _CACHE:
+        return _CACHE[key] or None
+
+    # Real-search path first (lazy import avoids a circular import).
+    from pipeline.enrichment.google_search import _keys, find_website_google
+    if _keys():
+        return find_website_google(firm_name)
+
+    return _ddg_lookup(firm_name, delay=delay)
+
+
+def _ddg_lookup(firm_name: str, *, delay: float = 1.5) -> Optional[str]:
     key = firm_name.strip().lower()
     if key in _CACHE:
         return _CACHE[key] or None
