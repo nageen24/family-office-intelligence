@@ -28,6 +28,10 @@ PHONE_RE = re.compile(r"(?:\+?\d{1,2}[\s.\-]?)?(?:\(?\d{3}\)?[\s.\-]?)\d{3}[\s.\
 LINKEDIN_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/(?:company|in)/[A-Za-z0-9\-_%]+")
 THESIS_WORDS = ("invest", "focus", "sector", "strategy", "portfolio",
                 "allocation", "direct", "private", "venture", "real estate")
+# mandate = concrete deal criteria (what/where/how much they deploy)
+MANDATE_WORDS = ("seek", "target", "criteria", "check size", "ticket",
+                 "stage", "geograph", "minimum", "we look for", "we invest in",
+                 "mandate", "deploy", "opportunit", "acquire", "partner with")
 # AUM figure: "$1.2 billion", "$500 million", "$3bn" etc.
 AUM_RE = re.compile(
     r"\$\s?\d[\d,]*(?:\.\d+)?\s*(?:trillion|billion|million|bn|mn|tn|b|m)\b",
@@ -108,6 +112,16 @@ def enrich_firm(firm: CandidateFirm) -> CandidateFirm:
                                          method="site copy (investing language)",
                                          epistemic=Epistemic.INFERENCE,
                                          confidence=Confidence.LOW)
+            break
+
+    # investing mandate (what/where/how they deploy — criteria language)
+    for p in soup.find_all(["p", "li"]):
+        t = p.get_text(" ", strip=True)
+        if len(t) > 50 and sum(w in t.lower() for w in MANDATE_WORDS) >= 2:
+            firm.mandate = Cell(value=t[:300], source=url,
+                                method="site copy (mandate/criteria language)",
+                                epistemic=Epistemic.INFERENCE,
+                                confidence=Confidence.LOW)
             break
 
     # contacts

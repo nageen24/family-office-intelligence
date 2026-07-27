@@ -91,12 +91,23 @@ def find_website(firm_name: str, *, delay: float = 1.5) -> Optional[str]:
     if key in _CACHE:
         return _CACHE[key] or None
 
-    # Real-search path first (lazy import avoids a circular import).
-    from pipeline.enrichment.google_search import _keys, find_website_google
-    if _keys():
-        return find_website_google(firm_name)
+    # 1. Wikidata P856 — keyless, structured, no abuse-block risk (primary).
+    from pipeline.enrichment.wikidata import find_website_wikidata
+    url = find_website_wikidata(firm_name)
+    if url:
+        _CACHE[key] = url
+        _save_cache(_CACHE)
+        return url
 
-    return _ddg_lookup(firm_name, delay=delay)
+    # No site found. Cache the honest blank so we don't re-query a firm that
+    # genuinely isn't resolvable (many single-family offices have no website).
+    # Google Custom Search was dropped (its abuse system IP-blocked us and its
+    # 100/day cap is fragile for a pipeline). DDG is IP-blocked here too. Both
+    # `google_search` / `_ddg_lookup` are kept for other environments but off
+    # the hot path — Wikidata is the keyless resolver we rely on.
+    _CACHE[key] = ""
+    _save_cache(_CACHE)
+    return None
 
 
 def _ddg_lookup(firm_name: str, *, delay: float = 1.5) -> Optional[str]:

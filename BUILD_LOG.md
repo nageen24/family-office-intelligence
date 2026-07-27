@@ -58,6 +58,18 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 
 **Next:** enrichment (AUM/thesis/contacts + dated signals), then Rule-2 validation → dataset.csv + rejection_log.csv + scorecard.
 
+## Session 4 — 2026-07-27 — Principal/signal enrichment + Google→Wikidata pivot
+
+**What the AI produced:** per-firm news enrichment (recent dated signal + principal name from headlines), SEC-filing enrichment (official business phone/address), AUM + mandate extractors, and a Wikidata website resolver.
+
+**What I decided / changed on top of it:**
+- Re-read the assessment and caught that we were drifting toward shipping *firm* business phones as if they were *decision-maker* intel; the doc's value is the principal (name/title/email/phone) + current signals, and a mostly-blank file fails. Redirected enrichment to fight for those cells.
+- Google Custom Search kept 403-ing; I cross-checked the diagnosis with a second AI tool, confirmed it was an **IP/account abuse block**, and decided to **drop Google entirely** and pivot to **Wikidata P856** (keyless, no block risk). Verified it returns real sites.
+- Caught + fixed a false-match bug (Duquesne Family Office → Duquesne University/duq.edu) by requiring finance-like entity descriptions — honest blank over wrong value.
+- Refused to rabbit-hole 990-trustee XML parsing (IRS moved the data); logged it as a known blind spot instead.
+
+**Next:** finish the Wikidata-based enrichment re-run, then fix Rule-2 strictness in validation (it currently over-qualifies on firm name alone) and run validation → dataset.csv.
+
 **Enrichment build + a real failure I hit:**
 - Found (by reading the code) that enrichment had no website-finding step and no AUM extraction. Chose DuckDuckGo for lookup (my call), built it + AUM extraction.
 - **DuckDuckGo turned out blocked** from this environment (202 anomaly on every variant; direct site fetch works, so only DDG search is blocked). Logged honestly.

@@ -48,6 +48,18 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — Dropped Google Custom Search, pivoted to Wikidata for website lookup (my call, after cross-checking the diagnosis)
+
+Google Custom Search kept returning 403 "project does not have access" even though I'd verified the key, the project, and the enabled API were all correct and consistent. I took the exact symptoms to a second AI tool to pressure-test my diagnosis rather than keep guessing. It confirmed the root cause: Google's abuse system had **IP/account-blocked us for too many automated requests** (the console even said so) — the 403 is misleading, it's the block, not the project. Enablement propagation is minutes, and we'd waited 45+, so propagation was ruled out.
+
+**Decision:** stop fighting Google and **drop Custom Search entirely.** Two reasons: (1) it's the wrong tool for a pipeline anyway — 100 queries/day cap plus an abuse system that blocks the whole IP the moment you automate it; (2) there's a cleaner keyless source. I pivoted the website resolver to **Wikidata property P856 (official website)** via its free API — structured, no key, and it doesn't share Google's abuse detection, so it fits the $0/no-key goal and can't get us IP-blocked. Verified live: it returns real official sites (Soros Fund Management → sorosfundmgmt.com, Cascade Investment → ciginc.net, BlackRock).
+
+**Guardrail I added after catching a real bug:** my first Wikidata version stem-matched "Duquesne **Family Office**" to "Duquesne **University**" and returned duq.edu — a wrong value, which the doc says is worse than a blank. I now require the matched entity's description to read like a finance/company entity and reject universities/people/places, so a stem collision returns an honest blank instead of a confident wrong site.
+
+**Honest limit I accept:** Wikidata coverage skews to well-known firms; most small single-family offices aren't in it and resolve to a blank. That's the honest tradeoff — I'd rather miss a website than attach the wrong one. Google (`google_search.py`) and DDG (`_ddg_lookup`) are left in the code for other environments but off the hot path. Also added `mandate` extraction (was an unbuilt cell) and 0.5s inter-request delays so we never trip an abuse block again.
+
+---
+
 ## 2026-07-27 — Rework enrichment to fight for PRINCIPAL-level intel + signals (my call, after re-reading the assessment doc)
 
 I stopped and re-read the assessment against what we'd built, and caught a blunder we were drifting toward: our enrichment was producing the firm's **business** phone/address (from SEC filings), but the doc is explicit that the value lives in the **decision-maker** — principal name, title, LinkedIn, direct email, phone — plus **current dated signals** ("why now"). Worse, the doc warns twice that a file which is *mostly honest blanks* is candid but **not sellable and will not pass**. We'd been leaning so hard on "honest blank over fake" that we risked a thin, unsellable file. Honest blanks are still the rule for what we genuinely can't verify — but I have to actually *fight for* these cells, not shrug and blank them.
