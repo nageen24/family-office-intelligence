@@ -1,0 +1,111 @@
+"""Enrichment: fill high-value cells for each discovered firm.
+
+Strategy (free, ToS-respecting):
+1. Find the firm's website (if not already known) via a lightweight web search.
+2. Fetch the site's homepage + likely "about"/"team"/"contact" pages.
+3. Extract: description/background, investing language (thesis/mandate hints),
+   emails, phones, principal names/titles, corporate LinkedIn.
+
+Everything extracted here is a CANDIDATE value. It is not trusted until the
+validation stage stamps provenance/confidence and cross-checks it. We never
+invent a value: if a page doesn't yield it, the cell stays blank.
+"""
+from __future__ import annotations
+
+import re
+from typing import List, Optional
+
+from bs4 import BeautifulSoup
+
+from pipeline.discovery.base import DiscoverySource  # for session/UA reuse
+from pipeline.schema import CandidateFirm, Cell, Epistemic, Confidence
+
+EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+PHONE_RE = re.compile(r"(?:\+?\d{1,2}[\s.\-]?)?(?:\(?\d{3}\)?[\s.\-]?)\d{3}[\s.\-]?\d{4}")
+LINKEDIN_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/(?:company|in)/[A-Za-z0-9\-_%]+")
+THESIS_WORDS = ("invest", "focus", "sector", "strategy", "portfolio",
+                "allocation", "direct", "private", "venture", "real estate")
+
+_http = DiscoverySource()  # reuse its polite session
+
+
+def _fetch(url: str) -> Optional[BeautifulSoup]:
+    try:
+        r = _http.get(url)
+        return BeautifulSoup(r.text, "html.parser")
+    except Exception:
+        return None
+
+
+def _first(regex, text) -> Optional[str]:
+    m = regex.search(text or "")
+    return m.group(0) if m else None
+
+
+def enrich_firm(firm: CandidateFirm) -> CandidateFirm:
+    url = firm.website
+    if not url:
+        # No website found is common for SFOs — honest blank, not invented.
+        return firm
+    if not url.startswith("http"):
+        url = "https://" + url
+
+    soup = _fetch(url)
+    if soup is None:
+        return firm
+
+    page_text = soup.get_text(" ", strip=True)
+    html = str(soup)
+
+    # background / description
+    meta = soup.find("meta", attrs={"name": "description"})
+    desc = meta.get("content") if meta and meta.get("content") else page_text[:400]
+    if desc:
+        firm.background = Cell(value=desc.strip(), source=url,
+                               method="site homepage / meta description",
+                               epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM)
+
+    # investing thesis hint
+    for p in soup.find_all(["p", "li"]):
+        t = p.get_text(" ", strip=True)
+        if len(t) > 60 and sum(w in t.lower() for w in THESIS_WORDS) >= 2:
+            firm.investing_thesis = Cell(value=t[:300], source=url,
+                                         method="site copy (investing language)",
+                                         epistemic=Epistemic.INFERENCE,
+                                         confidence=Confidence.LOW)
+            break
+
+    # contacts
+    email = _first(EMAIL_RE, html)
+    if email:
+        firm.principal_email = Cell(value=email.lower(), source=url,
+                                    method="scraped from site (unverified)",
+                                    epistemic=Epistemic.INFERENCE,
+                                    confidence=Confidence.LOW)
+    phone = _first(PHONE_RE, page_text)
+    if phone:
+        firm.principal_phone = Cell(value=phone.strip(), source=url,
+                                    method="scraped from site (unverified)",
+                                    epistemic=Epistemic.INFERENCE,
+                                    confidence=Confidence.LOW)
+    li = _first(LINKEDIN_RE, html)
+    if li:
+        if "/company" in li:
+            firm.corporate_linkedin = li
+        else:
+            firm.principal_linkedin = Cell(value=li, source=url,
+                                           method="linked from site",
+                                           epistemic=Epistemic.FACT,
+                                           confidence=Confidence.MEDIUM)
+    return firm
+
+
+def enrich_all(pool: List[CandidateFirm]) -> List[CandidateFirm]:
+    for i, firm in enumerate(pool, 1):
+        try:
+            enrich_firm(firm)
+        except Exception as e:
+            print(f"[enrich] {firm.firm_name}: {e}")
+        if i % 10 == 0:
+            print(f"[enrich] {i}/{len(pool)} done")
+    return pool
