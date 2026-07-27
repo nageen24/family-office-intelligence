@@ -3,8 +3,12 @@ answer (presentation talks only to this). Deployable (uvicorn), not a notebook.
 """
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from rag.answer import answer
@@ -15,9 +19,17 @@ app.add_middleware(
     allow_methods=["*"], allow_headers=["*"],
 )
 
+_FE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+app.mount("/static", StaticFiles(directory=_FE), name="static")
+
 
 class Query(BaseModel):
     query: str
+
+
+@app.get("/")
+def root():
+    return FileResponse(os.path.join(_FE, "index.html"))
 
 
 @app.get("/health")

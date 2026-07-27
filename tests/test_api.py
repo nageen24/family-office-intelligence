@@ -16,3 +16,10 @@ def test_answer_endpoint(monkeypatch):
     assert r.status_code == 200
     assert r.json()["verdict"] == "approved"
     assert r.json()["sources"] == ["X"]
+
+
+def test_root_serves_ui():
+    c = TestClient(api.app)
+    r = c.get("/")
+    assert r.status_code == 200
+    assert 'id="q"' in r.text  # the search input is present
