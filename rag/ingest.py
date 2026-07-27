@@ -46,10 +46,13 @@ def build_metadata(row: dict) -> dict:
     }
 
 
-def ingest(csv_path: str = "data/final/dataset.csv",
-           qdrant_path: str = "data/rag/qdrant",
-           collection: str = "firms") -> int:
-    from qdrant_client import QdrantClient
+def build_index(client, csv_path: str = "data/final/dataset.csv",
+                collection: str = "firms") -> int:
+    """Populate any Qdrant client (file, memory, or server) from the dataset.
+
+    Shared by the persistent ingest and the in-memory server path so the index
+    is built the same way everywhere.
+    """
     from qdrant_client.models import Distance, VectorParams, PointStruct
     from rag.embed import embed
 
@@ -57,7 +60,6 @@ def ingest(csv_path: str = "data/final/dataset.csv",
     blurbs = [record_to_blurb(r) for r in rows]
     vecs = embed(blurbs)  # (n, dim) L2-normalized
 
-    client = QdrantClient(path=qdrant_path)
     client.recreate_collection(
         collection,
         vectors_config=VectorParams(size=vecs.shape[1], distance=Distance.COSINE),
@@ -69,6 +71,15 @@ def ingest(csv_path: str = "data/final/dataset.csv",
     ]
     client.upsert(collection, points)
     return len(points)
+
+
+def ingest(csv_path: str = "data/final/dataset.csv",
+           qdrant_path: str = "data/rag/qdrant",
+           collection: str = "firms") -> int:
+    """Persistent build to a local Qdrant folder (for inspection/dev)."""
+    from qdrant_client import QdrantClient
+    client = QdrantClient(path=qdrant_path)
+    return build_index(client, csv_path, collection)
 
 
 if __name__ == "__main__":

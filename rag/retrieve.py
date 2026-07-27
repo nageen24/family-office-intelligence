@@ -16,8 +16,17 @@ COLLECTION = "firms"
 
 @lru_cache(maxsize=1)
 def _client():
+    """In-memory Qdrant built once per process from the dataset.
+
+    In-memory (not the local file store) so a web server can hold it without the
+    single-process file lock, and so deploy needs no external vector DB — the
+    66 vectors are rebuilt at startup in ~a second.
+    """
     from qdrant_client import QdrantClient
-    return QdrantClient(path="data/rag/qdrant")
+    from rag.ingest import build_index
+    client = QdrantClient(":memory:")
+    build_index(client)
+    return client
 
 
 def _filters(query: str):
