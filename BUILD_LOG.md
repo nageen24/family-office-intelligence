@@ -114,6 +114,17 @@ Built the Micro-RAG via brainstorming → spec → TDD plan → inline execution
 
 **Next:** Phase 3 — the live customer-facing UI on top of this API + deploy.
 
+## Session 8 — 2026-07-28 — UI live on Vercel + a RAG bug I caught after "done"
+
+**What the AI produced:** the single-page UI, Vercel serverless deploy config, and the deploy itself (live at family-office-intelligence.vercel.app). It also curated the dataset to the top-50 by a value ranking.
+
+**What I caught / changed on top of it (the important part):**
+- The AI called the RAG "done" — tests green, demo working. I didn't accept that. I asked the *live* system "how many family offices do you have?" and it said **8** (wrong; 50). I told the AI to **check deep down whether it's genuinely connected to the final CSV to answer**, not just returning something plausible.
+- That surfaced two bugs the AI had shipped: (1) count questions answered from the retrieved slice, not the corpus; (2) — the real one — the searchable blurb **omitted phone/email/website**, so the RAG *declined* the highest-value contact questions even though the data was in the CSV. Verified the fix against the CSV (Duquesne phone, Stenger email, Callan website all correct).
+- Full reasoning logged in DECISIONS.md (2026-07-28, "looks-fine-but-wasn't" entry) as my catch.
+
+This is the point of the exercise — not trusting green tests and a nice demo, but verifying the product actually does its core job against the source of truth.
+
 **Enrichment build + a real failure I hit:**
 - Found (by reading the code) that enrichment had no website-finding step and no AUM extraction. Chose DuckDuckGo for lookup (my call), built it + AUM extraction.
 - **DuckDuckGo turned out blocked** from this environment (202 anomaly on every variant; direct site fetch works, so only DDG search is blocked). Logged honestly.

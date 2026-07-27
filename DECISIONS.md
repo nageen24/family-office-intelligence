@@ -236,6 +236,18 @@ I originally planned 8 discovery sources, including LinkedIn, job boards, and co
 
 **Reasoning:** Prompt instructions alone don't prove the model obeys — a mechanical control does.
 
+## 2026-07-28 — I caught a "looks-fine-but-wasn't" RAG bug the AI missed: it wasn't surfacing the CSV's contact cells (my catch)
+
+After the RAG was built, tested green, and deployed, it *appeared* to work. I didn't take that at face value. I asked the live system a plain question — "how many family offices do you have?" — and it answered **"8"**, which is wrong; we have 50. I refused to treat it as a one-off and told the AI to **check deep down whether the system is actually connected to the final CSV to answer**, not just returning something plausible.
+
+That skepticism surfaced **two real bugs the AI had shipped as "working":**
+
+1. **Count/aggregate answers were wrong.** Retrieval hands the model only the top-k records, so "how many firms" was answered from the 8 it saw, not the 50 in the file. Fix: inject the true corpus total (counted from the dataset) into both the answerer and the validator so totals are correct and the validator doesn't wrongly decline them.
+
+2. **The bigger one — the RAG couldn't answer the highest-value questions at all.** The text blurb that gets embedded and handed to the LLM (`record_to_blurb`) **left out phone, email, website, mandate, and background.** So even though those cells were verified and present in `dataset.csv`, the model never saw them and *declined* "what is Duquesne's phone?" and "what is Stenger's email?" — exactly the contact intelligence the whole dataset exists to deliver. The 16 passing tests didn't catch it because they tested the plumbing, not whether every high-value cell reached the answer layer.
+
+**Why this matters:** the AI's tests were green and the demo looked good, but the product was quietly failing at its core job. Verifying the *content path end-to-end against the source CSV* — not just that the pipes run — is what exposed it. After the fix, checked against the CSV: Duquesne phone (212) 830-6500 ✓, Stenger email ✓, Callan website ✓, "how many" → 50 ✓. This is the kind of deep-check-your-own-output discipline the assessment scores, and it was mine, not the AI's.
+
 ## 2026-07-28 — Deliver the top 50 by a value ranking, audit the rest (my call)
 
 The pipeline qualified 66 records; the deliverable is 50. Rather than hand-pick (which the doc forbids — no manual compilation), I had the pipeline **rank all qualifiers by a documented value score and take the top 50**. The score (`value_score` in `io_utils.py`) rewards what a client pays for: reachability (can you act on it today), verified-cell richness (how much real intel the record carries), an AUM/website bonus, and an **SFO premium** (the record type the doc scores highest). The 50 delivered are the strongest by that rule; the other 16 qualifiers are written to `data/final/extended_qualified.csv` as an audit trail (they passed Rule 1 + Rule 2 but sit below the top-50 value bar), and the 215 rejects stay in the rejection log. This is why trimming *improved* the file: density rose (phone 88%, AUM 70%, title 70%, website 62% on the 50, vs lower across 66). The count 50 now reconciles everywhere — dataset.csv, the RAG corpus, and the UI ("Searching 50 verified family offices").
