@@ -66,27 +66,58 @@ def load_pool(name: str) -> List[CandidateFirm]:
     return pool
 
 
+TOP_N = 50  # the deliverable is the 50 strongest qualifying records
+
+
+def value_score(c: CandidateFirm) -> int:
+    """Documented ranking used to select the delivered 50 from all qualifiers.
+
+    The doc says only records meeting our stated inclusion standard count toward
+    the 50, and to keep the rest as audit. This score ranks by client value:
+    reachability (can you act on it), cell richness (how much verified intel),
+    and an SFO premium (the prize the doc scores highest). It is computed by the
+    pipeline, not hand-picked.
+    """
+    cells = [c.aum, c.principal_email, c.principal_phone, c.principal_title,
+             c.principal_name, c.recent_signal, c.investing_thesis,
+             c.mandate, c.background]
+    score = c.reachability_score or 0
+    score += 6 * sum(0 if x.is_blank() else 1 for x in cells)   # richness
+    if c.website:
+        score += 6
+    if not c.aum.is_blank():
+        score += 6
+    ftype = c.firm_type.value if hasattr(c.firm_type, "value") else c.firm_type
+    if ftype == "SFO":
+        score += 18                                             # SFO premium
+    return score
+
+
 def write_dataset(pool: List[CandidateFirm]) -> dict:
-    """Split pool into qualified dataset + rejection log and write files."""
+    """Rank qualifiers by value; deliver the top 50, audit the rest + rejects."""
     os.makedirs(FINAL, exist_ok=True)
     qualified = [c for c in pool if c.record_status == "Qualified"]
     rejected = [c for c in pool if c.record_status == "Rejected"]
 
-    df_q = pd.DataFrame([c.to_flat_row() for c in qualified])
-    df_r = pd.DataFrame([c.to_flat_row() for c in rejected])
+    qualified.sort(key=value_score, reverse=True)
+    delivered = qualified[:TOP_N]
+    extra = qualified[TOP_N:]  # qualified but below the top-50 value bar
 
     ds_csv = os.path.join(FINAL, "dataset.csv")
     ds_xlsx = os.path.join(FINAL, "dataset.xlsx")
+    ext_csv = os.path.join(FINAL, "extended_qualified.csv")
     rej_csv = os.path.join(FINAL, "rejection_log.csv")
 
+    df_q = pd.DataFrame([c.to_flat_row() for c in delivered])
     df_q.to_csv(ds_csv, index=False)
     if not df_q.empty:
         df_q.to_excel(ds_xlsx, index=False)
-    df_r.to_csv(rej_csv, index=False)
+    pd.DataFrame([c.to_flat_row() for c in extra]).to_csv(ext_csv, index=False)
+    pd.DataFrame([c.to_flat_row() for c in rejected]).to_csv(rej_csv, index=False)
 
     return {
-        "qualified": len(qualified),
+        "delivered": len(delivered),
+        "extended_qualified": len(extra),
         "rejected": len(rejected),
         "dataset_csv": ds_csv,
-        "rejection_log": rej_csv,
     }

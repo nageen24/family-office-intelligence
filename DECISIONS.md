@@ -236,6 +236,10 @@ I originally planned 8 discovery sources, including LinkedIn, job boards, and co
 
 **Reasoning:** Prompt instructions alone don't prove the model obeys — a mechanical control does.
 
+## 2026-07-28 — Deliver the top 50 by a value ranking, audit the rest (my call)
+
+The pipeline qualified 66 records; the deliverable is 50. Rather than hand-pick (which the doc forbids — no manual compilation), I had the pipeline **rank all qualifiers by a documented value score and take the top 50**. The score (`value_score` in `io_utils.py`) rewards what a client pays for: reachability (can you act on it today), verified-cell richness (how much real intel the record carries), an AUM/website bonus, and an **SFO premium** (the record type the doc scores highest). The 50 delivered are the strongest by that rule; the other 16 qualifiers are written to `data/final/extended_qualified.csv` as an audit trail (they passed Rule 1 + Rule 2 but sit below the top-50 value bar), and the 215 rejects stay in the rejection log. This is why trimming *improved* the file: density rose (phone 88%, AUM 70%, title 70%, website 62% on the 50, vs lower across 66). The count 50 now reconciles everywhere — dataset.csv, the RAG corpus, and the UI ("Searching 50 verified family offices").
+
 ## 2026-07-28 — Test every RAG piece to catch errors before they ship (my instruction)
 
 I directed that each part of the RAG be **tested as it was built**, not "written and hoped", specifically to catch errors early instead of discovering them in the live demo. The assessment scores validation and warns that every capability claim must reconcile with the artifacts — a test that actually runs green is that reconciliation, not a claim. So each component was built test-first: write the check, watch it fail, implement, watch it pass, commit.
