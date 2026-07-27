@@ -49,3 +49,11 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 - Held the line on: no fake, no manual compilation — close the gap to 50 by widening honest queries, or ship fewer real records and say so.
 
 **Next:** fix the news extractor, widen SEC/990 queries + raise caps for more real throughput, re-run discovery, then move to enrichment.
+
+**Executed (same session):**
+- Fixed the Google News extractor (made it a pure, unit-tested `extract_firm_name`): restricted to names ending in "Family Office" + a stopword filter for headline words/verbs. News precision went from ~10% to ~55%; real named FOs now surface (Perot, Pritzker, Dalio, Goldman, Raffles, Callan, UBS, INVL, Ayco).
+- Widened SEC (3 phrasings + pagination) and ProPublica 990 (5 queries + pagination) for more real throughput per my wide-net decision.
+- Re-ran discovery at cap 80/source: **233 unique candidates** (SEC 80, 990 80, News 73, OpenCorporates 0/401). Up from 120. Genuine FO signal now comfortably above the 50 target *before* validation attrition — the point of option 1.
+- Left the residual news fragments in on purpose: they're what validation + the rejection log are for.
+
+**Next:** enrichment (AUM/thesis/contacts + dated signals), then Rule-2 validation → dataset.csv + rejection_log.csv + scorecard.
