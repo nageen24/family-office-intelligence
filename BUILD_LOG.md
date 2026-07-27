@@ -70,6 +70,20 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 
 **Next:** finish the Wikidata-based enrichment re-run, then fix Rule-2 strictness in validation (it currently over-qualifies on firm name alone) and run validation → dataset.csv.
 
+## Session 5 — 2026-07-27 — 13F breakthrough + honest yield reckoning
+
+**Honest yield check first:** the Wikidata-based run's real numbers (counted by value, after I caught my own misleading 100% count) were: signals 65%, firm phone 32%, but websites 4%, principal name 1%, email 0%, AUM 0%. I said plainly: this file would fail the actionability bar as-is.
+
+**What the AI produced:** the 13F enrichment module (signature name/title/phone + portfolio value), value-convention disambiguation, ADV probes (all 403-blocked from this IP), and the DECISIONS entries.
+
+**What I decided / changed on top of it:**
+- Adopted the **13F insight** as the sourcing centerpiece: FOs are ADV-exempt but NOT 13F-exempt, so 13F filers named "Family Office" are provable SFOs — the exemption blind spot became the targeting mechanism.
+- **Honest labeling rule (mine):** 13F values are labeled "13F portfolio value", never "AUM" — a correct conservative number over an inflated one.
+- Confirmed dropping ADV after it proved IP-blocked (third blocked service; no more rabbit-holes).
+- Caught-in-testing bugs logged: mixed thousands/dollars convention ($108T absurdities), corporate signers as "principal names", $0 values.
+
+**Next:** re-run enrichment with 13F, then STRICT Rule-2 validation → dataset.csv + rejection_log.csv + SFO/MFO split.
+
 **Enrichment build + a real failure I hit:**
 - Found (by reading the code) that enrichment had no website-finding step and no AUM extraction. Chose DuckDuckGo for lookup (my call), built it + AUM extraction.
 - **DuckDuckGo turned out blocked** from this environment (202 anomaly on every variant; direct site fetch works, so only DDG search is blocked). Logged honestly.

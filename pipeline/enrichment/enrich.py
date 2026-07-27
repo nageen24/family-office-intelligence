@@ -20,6 +20,7 @@ from bs4 import BeautifulSoup
 from pipeline.discovery.base import DiscoverySource  # for session/UA reuse
 from pipeline.enrichment.website_finder import find_website
 from pipeline.enrichment.sec_filing import enrich_from_sec
+from pipeline.enrichment.sec_13f import enrich_from_13f
 from pipeline.enrichment.news_signal import NewsSignalEnricher
 from pipeline.schema import CandidateFirm, Cell, Epistemic, Confidence
 
@@ -154,6 +155,7 @@ def enrich_all(pool: List[CandidateFirm]) -> List[CandidateFirm]:
     for i, firm in enumerate(pool, 1):
         try:
             enrich_from_sec(firm)   # official filing data first (no key, no guess)
+            enrich_from_13f(firm)   # 13F: principal name/title/phone + portfolio value
             news.enrich(firm)       # recent dated signal + principal from news (keyless)
             enrich_firm(firm)       # then website scrape (needs a found site)
         except Exception as e:

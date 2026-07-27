@@ -48,6 +48,22 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — 13F filings as the SFO-proof weapon + honest AUM labeling (my call)
+
+After the enrichment numbers came back thin on decision-maker cells (principal name 1%, email 0%, AUM 0%), the AI proposed going deeper into SEC filings. Working through it, we hit the insight that reframes the whole sourcing story:
+
+**Family offices are exempt from SEC *adviser* registration (the Family Office Rule) — but nothing exempts them from Form 13F.** Any institution holding over $100M in US-listed equities must file 13F, family office or not. So a 13F filer whose name says "Family Office" is a *provably real, provably active* family office — an official federal filing as Rule-2 affirmative evidence. This turns the SEC-exemption blind spot I logged earlier from a weakness into a targeting mechanism: 13F is where the invisible SFOs are forced to surface. Duquesne (Druckenmiller) is exactly this: no ADV, no marketing — but a 13F showing $3.38B and a signed filing with title + phone.
+
+**What 13F gives per filer (all official, keyless):** signature block (name, title, phone of the person who signed — real decision-maker-adjacent intel), total portfolio value, and filing date (freshness). 
+
+**Honest-labeling decision (mine):** the 13F `tableValueTotal` is US-listed equities only — NOT full AUM (it excludes bonds, privates, cash, non-US). I decided every AUM cell filled this way is explicitly labeled "13F portfolio value," never "AUM," because inflating it into full AUM would be exactly the dressed-up-fake the assessment disqualifies. A conservative, correctly-labeled number beats an impressive wrong one.
+
+**Data bugs I caught in testing before they poisoned the file:** (1) SEC switched the 13F value convention in 2023 (thousands → full dollars) and filers are inconsistent — SEI computed as "$108,447B" and EMFO as "$111B", both absurd. Fixed with a disambiguation rule anchored on the $100M filing threshold: if the raw number already reads ≥$100M as dollars, it IS dollars. Verified: Duquesne $3.38B / EMFO $111.7M / SEI $108.45B — all plausible now. (2) Corporate signers ("SEI INVESTMENTS CO") were being accepted as human principal names — now rejected (all-caps/corporate-suffix/name-equals-firm checks). (3) $0 table values now stay blank instead of claiming "$0 AUM."
+
+**ADV attempt — blocked, dropped:** Form ADV bulk data would add registered-adviser websites + real AUM, but every ADV endpoint (api.adviserinfo.sec.gov, the bulk compilation feed) returns 403 from this environment — same datacenter-IP bot-blocking that killed Google and DDG. Rather than rabbit-hole a third blocked service, I dropped ADV and logged it as an environment-imposed blind spot. 13F + EDGAR submissions (which do work) carry the load.
+
+---
+
 ## 2026-07-27 — Dropped Google Custom Search, pivoted to Wikidata for website lookup (my call, after cross-checking the diagnosis)
 
 Google Custom Search kept returning 403 "project does not have access" even though I'd verified the key, the project, and the enabled API were all correct and consistent. I took the exact symptoms to a second AI tool to pressure-test my diagnosis rather than keep guessing. It confirmed the root cause: Google's abuse system had **IP/account-blocked us for too many automated requests** (the console even said so) — the 403 is misleading, it's the block, not the project. Enablement propagation is minutes, and we'd waited 45+, so propagation was ruled out.
