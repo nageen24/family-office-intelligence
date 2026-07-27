@@ -34,10 +34,16 @@ TODAY = date.today().isoformat()
 # appeared in an FO-associated source. We require AFFIRMATIVE evidence from an
 # independent basis: an official filing under an FO name, or FO self-description
 # / press description in gathered text. Name alone => Unconfirmed => Rejected.
+# Unambiguous single-family markers only. Removed "our family" / "one family" /
+# "family's capital": those are MFO *marketing* phrases too ("we treat every
+# client like one family"), and they mislabeled Pathstone — a well-known
+# multi-family office — as SFO. A misclassified MFO-as-SFO is the worst error
+# in this domain, so the bar here is strict, explicit self-identification.
 SFO_MARKERS = [
-    "single family office", "single-family office", "our family",
-    "one family", "family's capital", "we are the family office",
-    "does not accept external", "not accepting new clients",
+    "single family office", "single-family office",
+    "we are the family office of", "sole family we serve",
+    "does not accept external clients", "not accepting new clients",
+    "serves one family", "one family we serve",
 ]
 MFO_MARKERS = [
     "multi family office", "multi-family office", "families we serve",
