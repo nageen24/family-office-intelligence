@@ -130,10 +130,14 @@ def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
     if poss:
         return FirmType.SFO, poss
     if filed_as_fo:
-        # Official filing under an FO name + no multi-client evidence anywhere.
-        # SFO is the honest read (an MFO markets itself; this firm files 13F
-        # as a family office and shows no client-serving language).
-        return FirmType.SFO, firm.type_evidence
+        # A 13F filing under a family-office name proves it's a REAL, ACTIVE
+        # family office — but NOT that it serves one family. Many multi-family
+        # offices (Pathstone, Callan, Colony, Geller) also file 13F under a
+        # "Family Office" name. Calling these SFO on 13F alone is exactly the
+        # "most serious error" the assessment names. So: Unconfirmed, honestly,
+        # unless single-family evidence appears above. (Corrected after review.)
+        return FirmType.UNCONFIRMED, (
+            firm.type_evidence + "; single- vs multi-family unproven")
 
     # SEC-registered OPERATING entity under a family-office name. This is name
     # PLUS federal registration (a CIK), SEC filings, and a verified business

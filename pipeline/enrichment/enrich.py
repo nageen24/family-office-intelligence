@@ -162,4 +162,7 @@ def enrich_all(pool: List[CandidateFirm]) -> List[CandidateFirm]:
             print(f"[enrich] {firm.firm_name}: {e}")
         if i % 10 == 0:
             print(f"[enrich] {i}/{len(pool)} done")
+    # apply verified browser-sourced websites/emails (cached input, see apply_web)
+    from pipeline.enrichment.apply_web import apply_web
+    apply_web(pool)
     return pool
