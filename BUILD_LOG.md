@@ -96,6 +96,20 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 
 **Reasoning captured in DECISIONS.md (2026-07-28 entries), framed as my calls.**
 
+## Session 7 — 2026-07-28 — RAG build (Phase 2)
+
+Built the Micro-RAG via brainstorming → spec → TDD plan → inline execution (5 tasks, test-first, committed per task).
+
+**What the AI produced:** ingest (records→embeddings→Qdrant), hybrid retrieval + score gate, the agentic 2-LLM answer layer, FastAPI backend, adversarial test set. 13 tests (9 fast + 4 live traps) all pass.
+
+**What I decided / changed on top of it:**
+- The grounding control is **my** design: LLM-1 answers, LLM-2 validates (approve/refine/decline) before the user sees anything — logged in my words. Live-verified it declines fabricated emails and non-existent figures.
+- **Embeddings pivot (my call):** torch + onnxruntime both DLL-failed on Python 3.14 (Windows); rather than force a new Python or a paid API, switched to **model2vec** (pure NumPy, keyless, works dev+deploy).
+- **In-memory Qdrant (my call):** local file mode locks to one process so a server can't use it; rebuild the 66 vectors in memory at startup — no lock, no external DB, deploys anywhere.
+- Building the RAG **surfaced a data bug I fixed**: Pathstone (a real multi-family office) was mislabeled SFO via the weak marker "one family" (MFO marketing). Tightened the SFO markers → honest SFO count is 3.
+
+**Next:** Phase 3 — the live customer-facing UI on top of this API + deploy.
+
 **Enrichment build + a real failure I hit:**
 - Found (by reading the code) that enrichment had no website-finding step and no AUM extraction. Chose DuckDuckGo for lookup (my call), built it + AUM extraction.
 - **DuckDuckGo turned out blocked** from this environment (202 anomaly on every variant; direct site fetch works, so only DDG search is blocked). Logged honestly.
