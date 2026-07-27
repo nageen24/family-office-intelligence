@@ -110,7 +110,7 @@ Built the Micro-RAG via brainstorming → spec → TDD plan → inline execution
 
 **Error handling (my calls, hardening the answer layer):**
 - I asked for proper failure handling. Added distinct user-facing states — empty / no_match / declined / answered / **error** — each a readable message, never an error dump (matches the doc's success/empty/partial/failure requirement).
-- **My decision: two LLM keys with failover.** Both LLMs try Groq first, then fall over to NVIDIA NIM (`meta/llama-3.3-70b-instruct`) if Groq is down/rate-limited — so a single provider outage can't take the system down. Only if both fail does the user see an honest "service unavailable" message. Logged in DECISIONS.md in my words. Failover unit-tested (Groq-fails→NVIDIA-serves, all-fail→error, no-keys→error).
+- **My decision: two LLM keys with failover.** Both LLMs try Groq first, then fall over to OpenRouter (`openai/gpt-oss-20b:free`) if Groq is down/rate-limited — so a single provider outage can't take the system down. Only if both fail does the user see an honest "service unavailable" message. Logged in DECISIONS.md in my words. Failover unit-tested (Groq-fails→NVIDIA-serves, all-fail→error, no-keys→error).
 
 **Next:** Phase 3 — the live customer-facing UI on top of this API + deploy.
 

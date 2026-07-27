@@ -7,10 +7,10 @@ from rag import llm
 
 def _both_keys(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "g")
-    monkeypatch.setenv("NVIDIA_API_KEY", "n")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "o")
 
 
-def test_falls_over_to_nvidia_when_groq_fails(monkeypatch):
+def test_falls_over_to_backup_when_groq_fails(monkeypatch):
     _both_keys(monkeypatch)
     seen = []
 
@@ -18,13 +18,13 @@ def test_falls_over_to_nvidia_when_groq_fails(monkeypatch):
         seen.append(provider[0])
         if provider[0] == "groq":
             raise RuntimeError("groq down")
-        return "answer from nvidia"
+        return "answer from backup"
 
     monkeypatch.setattr(llm, "_call", fake_call)
     monkeypatch.setattr(llm.time, "sleep", lambda *_: None)
     out = llm.chat("sys", "user")
-    assert out == "answer from nvidia"
-    assert "groq" in seen and "nvidia" in seen  # tried groq first, then nvidia
+    assert out == "answer from backup"
+    assert "groq" in seen and "openrouter" in seen  # tried groq first, then backup
 
 
 def test_raises_only_when_all_providers_fail(monkeypatch):
@@ -38,6 +38,7 @@ def test_raises_only_when_all_providers_fail(monkeypatch):
 
 def test_no_keys_raises(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     with pytest.raises(RuntimeError):
         llm.chat("s", "u")

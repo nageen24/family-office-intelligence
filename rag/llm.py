@@ -27,8 +27,10 @@ load_dotenv()
 PROVIDERS = [
     ("groq", "https://api.groq.com/openai/v1/chat/completions",
      "GROQ_API_KEY", "llama-3.3-70b-versatile"),
-    ("nvidia", "https://integrate.api.nvidia.com/v1/chat/completions",
-     "NVIDIA_API_KEY", "meta/llama-3.3-70b-instruct"),
+    # Backup: OpenRouter (globally available, free models, OpenAI-compatible).
+    # NVIDIA NIM was geo-restricted at signup, so OpenRouter is the backup.
+    ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
+     "OPENROUTER_API_KEY", "openai/gpt-oss-20b:free"),
 ]
 
 
