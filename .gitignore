@@ -34,3 +34,5 @@ Thumbs.db
 assessment/
 *assessment*.pdf
 *assessment*.docx
+data/rag/
+.pytest_cache/

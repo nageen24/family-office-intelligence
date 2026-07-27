@@ -236,6 +236,10 @@ I originally planned 8 discovery sources, including LinkedIn, job boards, and co
 
 **Reasoning:** Prompt instructions alone don't prove the model obeys — a mechanical control does.
 
+## 2026-07-28 — Embeddings: model2vec (pure NumPy) after torch/onnx wouldn't load (my call)
+
+Plan was local `all-MiniLM-L6-v2` via sentence-transformers. On this machine it failed: torch (and then onnxruntime, and fastembed which sits on onnx) all threw Windows DLL init errors — Python 3.14 is newer than the native ML wheels support, and there's no older Python/conda here. Rather than force the user to install another Python or a paid embedding API, I switched to **model2vec** (`minishlab/potion-base-8M`): a distilled static embedding that runs on **pure NumPy**, no torch/onnx, no native runtime. It stays local + keyless, loads fine on 3.14, and works on the Linux deploy target too. Sanity-checked the semantics before committing (a family-office query scored 0.56 vs a family-office record and −0.03 vs a bread recipe — real separation). Tradeoff I accept: static embeddings are a notch below a full transformer on nuance, but for 66 records + short IR queries the quality is more than enough, and a keyless, dependency-light embedding that actually runs beats a better one that won't load.
+
 ## 2026-07-28 — The grounding control, in my own words (my decision, expanded before building the RAG)
 
 The assessment says (its words): "Prompt instructions alone are not enough... Your system must include a working control that... causes the system to qualify, limit, or decline an answer when the evidence is insufficient. What that control is, and how it works, is your design decision." That last line is the opening — the *how* is mine to choose, and I chose an **agentic two-LLM design based on Andrew Ng's agentic-AI course (the reflection / evaluator pattern)**. Here is the mechanism in plain terms, as I decided it:
