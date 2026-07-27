@@ -112,8 +112,10 @@ Every non-happy path returns a plain-English message, never an error dump:
 No auth, no multi-user accounts, no streaming, no re-ranking models, no
 conversation memory. One question → one grounded answer. Small by design.
 
-## 10. Open items to confirm
+## 10. Stack decisions (confirmed 2026-07-28)
 
-1. Embeddings: local MiniLM (recommended, keyless) vs Gemini API.
-2. Groq API key (free, no card) — needed to build the answer layer.
-3. Qdrant: local now, Cloud at deploy — confirm.
+1. **Embeddings: local `all-MiniLM-L6-v2`** — keyless, no Google dependency. ✅
+2. **LLMs: Groq `llama-3.3-70b`** — key saved in `.env`, tested working (200 OK).
+   Chosen over Gemini specifically because Groq is not Google and is unaffected
+   by the IP-flag that blocked Custom Search. ✅
+3. **Qdrant: local (file mode) for dev**, Qdrant Cloud (free) at deploy. ✅
