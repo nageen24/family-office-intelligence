@@ -25,7 +25,15 @@ from pipeline.enrichment.website_finder import BLOCK, _CACHE, _save_cache, _doma
 ENDPOINT = "https://www.googleapis.com/customsearch/v1"
 
 
+# Circuit breaker: once Google returns a hard access error (e.g. API not yet
+# propagated / throttled), stop querying for the rest of the run instead of
+# hammering a blocked endpoint 200+ times.
+_DISABLED = False
+
+
 def _keys() -> Optional[tuple]:
+    if _DISABLED:
+        return None
     api = os.getenv("GOOGLE_API_KEY")
     cx = os.getenv("GOOGLE_CSE_ID")
     return (api, cx) if api and cx else None
@@ -48,8 +56,13 @@ def find_website_google(firm_name: str) -> Optional[str]:
 
     params = {"key": api, "cx": cx,
               "q": f"{firm_name} family office official website", "num": 5}
+    global _DISABLED
     try:
         r = requests.get(ENDPOINT, params=params, timeout=30)
+        if r.status_code == 403:
+            _DISABLED = True  # trip the breaker; API not accessible this run
+            print(f"[google_search] 403 access denied -> disabling Google lookups for this run")
+            return None
         r.raise_for_status()
         items = r.json().get("items", []) or []
     except Exception as e:

@@ -48,6 +48,19 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — Rework enrichment to fight for PRINCIPAL-level intel + signals (my call, after re-reading the assessment doc)
+
+I stopped and re-read the assessment against what we'd built, and caught a blunder we were drifting toward: our enrichment was producing the firm's **business** phone/address (from SEC filings), but the doc is explicit that the value lives in the **decision-maker** — principal name, title, LinkedIn, direct email, phone — plus **current dated signals** ("why now"). Worse, the doc warns twice that a file which is *mostly honest blanks* is candid but **not sellable and will not pass**. We'd been leaning so hard on "honest blank over fake" that we risked a thin, unsellable file. Honest blanks are still the rule for what we genuinely can't verify — but I have to actually *fight for* these cells, not shrug and blank them.
+
+**Decision:** add keyless, high-value enrichment that targets the decision-maker and recent activity, and lean into finding genuine single-family offices (the prize), not an MFO/charity-heavy file:
+1. **Per-firm news signal** (Google News RSS per firm, keyless) — most recent dated headline → `recent_signal` + date + type. Confirmed working: real 2025–2026 signals for Duquesne, Bezos, Soros, Walton, Pritzker.
+2. **Principal name from the headline** — family-office headlines routinely name the principal ("*Stanley Druckenmiller's* Duquesne Family Office", "Soros Family Office *hires Dawn Fitzpatrick*"). Extracts the name when a clear pattern matches; otherwise honest blank. Stamped inference/low — it's a headline, not a filing.
+3. **Website team/contact scraping** for principal email/title/LinkedIn — depends on the Google search key, which is currently throttled; deferred until it propagates, with a circuit-breaker so we don't hammer the blocked API.
+
+**What I refused / where I stopped:** the strongest single-family-office principal source is the family foundation's Form 990 trustee list (Part VII names = the family). I probed it — ProPublica's API hides the names, and the old per-filing IRS XML bucket now 404s (IRS moved to bulk ZIPs). Parsing bulk 990 ZIPs is a real rabbit hole, and the doc explicitly warns against over-engineering, so I am **not** building it now; I'm recording 990-trustee extraction as a known blind spot instead of sinking hours into it. Honest gap over busywork.
+
+---
+
 ## 2026-07-27 — DuckDuckGo blocked; I rejected domain-guessing and chose real search + filing-based enrichment (my call)
 
 When I actually ran the DuckDuckGo lookup I'd chosen, it failed: DDG returns a 202 "anomaly" bot-block for this environment's IP on every variant (html/lite, GET/POST, full browser headers). A direct fetch of a known firm site (pathstone.com → 200) proved the internet itself works — only the DDG *search* step is blocked. So my first pick genuinely failed in practice; recording that honestly rather than hiding it.
