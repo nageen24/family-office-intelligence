@@ -36,3 +36,16 @@ Per-session record of work: what the AI produced, and what I (nageen24) changed,
 - Reasoning captured in DECISIONS.md; honesty of the dataset takes priority over source count.
 
 **Next:** run the pipeline (discovery first, no keys needed) and see the real candidate yield before enrichment.
+
+---
+
+## Session 3 — 2026-07-27 — First discovery run + noise strategy
+
+**What the AI produced:** installed the Python deps, ran the discovery stage (no API keys), and reported the real yield honestly — 120 unique candidates (SEC 40, ProPublica 990 40, Google News 40, OpenCorporates 0/401). It then read the actual candidate names back to me and flagged the quality problems itself (SEC noise, generic charities, a broken news-name extractor) instead of just reporting the count. It laid out three cleanup strategies with tradeoffs and recommended option 1.
+
+**What I decided / changed on top of it:**
+- **Chose Option 1** (wide net + strict validation as the filter + rejection log as proof), and had it logged as my decision with my own reasoning — see DECISIONS.md. Core of my reasoning: the assessment rewards validation that *changes* the output, so I want junk to flow in and be visibly rejected; and hard front-door filtering would kill the hidden SFOs this task values most.
+- Treated the broken Google News extractor as a plain bug to fix regardless of strategy.
+- Held the line on: no fake, no manual compilation — close the gap to 50 by widening honest queries, or ship fewer real records and say so.
+
+**Next:** fix the news extractor, widen SEC/990 queries + raise caps for more real throughput, re-run discovery, then move to enrichment.

@@ -48,6 +48,25 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — First real discovery run + how to handle the noise (my call)
+
+Ran discovery for the first time (no API keys needed). Raw yield: **120 unique candidates** — SEC EDGAR 40, ProPublica 990 40, Google News 40, OpenCorporates 0 (free tier returns 401 without a token; logged honestly, not faked).
+
+**What the raw data actually looked like when I read it** (not the count — the quality):
+- **SEC EDGAR:** only ~1 in 3 are real family offices (Duquesne, Kopp, Pathstone, Longboat, EMFO, Family Office of America). The rest are big filers that merely *mention* "family office" in a document — Chevron, Apollo, SEI, Bank of Montreal, several biotechs. The extractor pulls every filer name on any filing containing the phrase.
+- **ProPublica 990:** the name-match is grabbing generic tiny "X Family Foundation" charities, most with no connected family office. Weak precision for my actual goal.
+- **Google News:** the firm-name extractor is **broken** — it's returning headline fragments ("How Family Office", "Will Upcoming Mega-IPOs Impact Family Office", "Venture Capital"), not firm names. A clear bug, ~10% usable.
+
+So of 120 raw, genuine FO signal is realistically **~30–40 firms** — short of the 50 target, with real junk mixed in.
+
+**The AI laid out three options:** (1) fix the news bug + widen the net, but let Rule-2 validation and the rejection log filter the junk; (2) filter hard inside discovery so only obvious FOs get through; (3) a middle path.
+
+**My decision: Option 1** — wide net in, strict validation as the filter, keep the rejected pile as proof. My reasoning: the assessment itself says validation that doesn't change what you deliver "is not validation, only measurement," so I *want* the junk to flow in and then get visibly rejected — that rejection log is my evidence the validation actually did work. Option 2 (filtering hard up front) is the tempting-but-wrong move here: family offices are deliberately low-profile, so an aggressive front-door keyword filter would throw out exactly the hidden SFOs this task values most, and I'd never see them in the rejection log either. I'd rather over-collect and prove I can cut, than quietly pre-cut and lose the rare ones. The one thing I'm treating as a plain bug to fix regardless is the broken news extractor — that's not a strategy choice.
+
+**Tradeoff I accept:** enrichment will waste some effort on firms that later get rejected, and I still have to close the gap to 50 by widening queries *within* these sources (not by adding fake or manual entries — see the source-drop decision below). If widening honestly still can't reach 50, I ship fewer real records over more fake ones, and say so.
+
+---
+
 ## 2026-07-27 — Dropped LinkedIn / job boards / conferences as discovery sources (my call)
 
 I originally planned 8 discovery sources, including LinkedIn, job boards, and conference/podcast lists. When it came to building them I hit a wall: automated scraping of those sites violates their ToS and is actively blocked, so any scraper would either return nothing or need me to hand-collect firms into a file. The assessment explicitly forbids manual compilation of records (only manual spot-checks/judgment calls are allowed), and I refuse to fill the dataset with fake or hand-assembled entries just to inflate the source count.
