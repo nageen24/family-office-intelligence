@@ -48,6 +48,18 @@ Reasoning: my original 5 leaned on filings and news; adding people-driven and hi
 
 ---
 
+## 2026-07-27 — Possessive-SFO rule, the existence gate, and the CIK-registry anchor source (my calls)
+
+Three linked decisions from the first strict validation runs:
+
+**1. Press-possessive SFO rule (I chose option A).** The AI offered: (A) treat a headline attributing an office to ONE named person ("Jeff Bezos' family office") as single-family evidence, labeled inference/medium with the exact headline as `type_evidence`; or (B) keep those firms type-Unconfirmed. I chose A because the doc doesn't forbid inference — it forbids *unevidenced relabeling* — and explicitly asks me to state my evidence standard; an office belonging to one named person serves one family by definition. Written into PROOF_STANDARD.md before applying, fires only on person-name possessives, sample hand-checked. The AI's initial estimate was 15–25 upgrades; the real data yielded ~4. I kept the honest number rather than loosening the pattern to hit the estimate.
+
+**2. The existence gate — my own validation caught fake SFOs.** First strict run produced "SFOs" like "Revised Single Family Office" and "Lean Single Family Office" — headline debris that self-certified via its own name text. Exactly the disqualifying error. My rule: before any type label matters, a firm must prove it EXISTS — an SEC CIK, a resolved website, a registry location, or a named principal. One headline fragment is not a firm. Result: qualified collapsed from 78 to 12 — painful and correct. I'd rather show 12 provable records than 78 with phantoms; the rejection log now proves the validation has teeth (221 rejections with reasons).
+
+**3. CIK-registry as the anchor discovery source.** 12 < 50, so we needed firms that arrive WITH proof, not firms we hope to prove later. The SEC's complete company-name registry (cik-lookup-data.txt, official, keyless) lists every entity that ever registered — grepping it yielded **55 real family-office entities** (Duquesne, Callan, Biltmore, Colony, Geller, Deutsche Oppenheim...), each with a federal CIK = existence proof at discovery time, official phone/address via submissions, 13F value where filed. SPV series entries are collapsed to their parent FO (an SPV also proves live deal activity). Noise names (funds/institutes/conference orgs containing the phrase) are filtered and logged.
+
+---
+
 ## 2026-07-27 — 13F filings as the SFO-proof weapon + honest AUM labeling (my call)
 
 After the enrichment numbers came back thin on decision-maker cells (principal name 1%, email 0%, AUM 0%), the AI proposed going deeper into SEC filings. Working through it, we hit the insight that reframes the whole sourcing story:

@@ -46,6 +46,52 @@ MFO_MARKERS = [
 ]
 
 
+# Press-possessive SFO rule (candidate's written standard, see PROOF_STANDARD.md):
+# a headline attributing the office to ONE named individual ("Jeff Bezos' family
+# office", "the family office of Ray Dalio") is affirmative single-family
+# evidence — an office belonging to one named person serves one family by
+# definition. Inference/medium, evidence = the exact headline; fires ONLY on a
+# person-name possessive, never on generic names ("Singapore Family Office").
+_PERSON = r"[A-Z][a-z]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z]+){1,2}?"
+_POSSESSIVE_SFO = [
+    re.compile(rf"({_PERSON})['’‘`]s?\s+[Ff]amily\s+[Oo]ffice"),
+    re.compile(rf"[Ff]amily\s+[Oo]ffice\s+of\s+({_PERSON})\b"),
+]
+
+
+# words that prove the "person" match is actually a company/place, not a human
+_NOT_A_PERSON = {"inc", "llc", "lp", "ltd", "corp", "co", "group", "capital",
+                 "partners", "holdings", "america", "global", "management",
+                 "investments", "ventures", "advisors", "trust", "firm"}
+
+
+def _is_person(name: str) -> bool:
+    words = name.split()
+    return (2 <= len(words) <= 3
+            and not any(w.lower().strip(".,") in _NOT_A_PERSON for w in words))
+
+
+def _possessive_sfo_evidence(firm: CandidateFirm) -> str | None:
+    # Basis 1: the firm's recent-signal headline carries a person-possessive.
+    sig = firm.recent_signal
+    if not sig.is_blank():
+        for pat in _POSSESSIVE_SFO:
+            m = pat.search(sig.value or "")
+            if m and _is_person(m.group(1).strip()):
+                return (f"press attributes office to one individual "
+                        f"('{m.group(1).strip()}') — headline: "
+                        f"\"{(sig.value or '')[:120]}\" [{sig.source}] "
+                        f"(inference/medium)")
+    # Basis 2: enrichment already extracted a principal FROM a possessive/hire
+    # headline (news_signal.py) — same evidence, stored with its source URL.
+    pn = firm.principal_name
+    if (not pn.is_blank() and pn.method and "headline" in pn.method
+            and _is_person(pn.value or "")):
+        return (f"press names one individual behind the office "
+                f"('{pn.value}') [{pn.source}] (inference/medium)")
+    return None
+
+
 def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
     """Return (type, evidence). Evidence must be independent of the name."""
     name_says_fo = "family office" in (firm.firm_name or "").lower()
@@ -72,6 +118,9 @@ def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
         return FirmType.MFO, f"MFO evidence in gathered text: {mfo_hits}"
     if sfo_hits:
         return FirmType.SFO, f"SFO evidence in gathered text: {sfo_hits}"
+    poss = _possessive_sfo_evidence(firm)
+    if poss:
+        return FirmType.SFO, poss
     if filed_as_fo:
         # Official filing under an FO name + no multi-client evidence anywhere.
         # SFO is the honest read (an MFO markets itself; this firm files 13F
@@ -167,6 +216,21 @@ def validate_all(pool: List[CandidateFirm], min_score: int = 20) -> List[Candida
         firm.principal_email = verify_email(firm.principal_email)
 
         firm.reachability_score = reachability(firm)
+
+        # EXISTENCE GATE (before any type label matters): a firm must be
+        # provable as a real entity — an SEC CIK, a resolved website, a
+        # registry/990 location, or a named principal. A name that exists only
+        # inside one headline fragment is a phantom, and phantom "SFOs" are
+        # the worst records a file can carry ("Revised Single Family Office"
+        # was headline debris that self-certified via its own name — caught in
+        # testing, hence this gate).
+        exists = bool(firm.cik or firm.website or firm.hq_location
+                      or not firm.principal_name.is_blank())
+        if not exists:
+            firm.record_status = "Rejected"
+            firm.rejection_reason = ("existence unproven: no SEC entity, website, "
+                                     "registry location, or named principal")
+            continue
 
         # Qualification decision (Rule 2 is the gate, thinness second).
         # Distinction the assessment draws: a firm whose FO-ness we cannot

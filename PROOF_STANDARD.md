@@ -16,6 +16,24 @@ I use three categories and require this evidence for each:
   family and does not solicit external clients — e.g. "single family office",
   "our family", "not accepting new clients", a Form ADV showing ~1 client, or a
   claimed SEC family-office exemption. Stored in `type_evidence`.
+
+  Two additional SFO evidence bases I adopted during the build, both written
+  down BEFORE applying them:
+
+  1. **Official 13F under a family-office name.** Family offices are exempt
+     from SEC adviser registration but NOT from Form 13F (mandatory above
+     $100M in US equities). A firm that files 13F under a "Family Office" name
+     and shows no client-serving language anywhere is a real, active family
+     office on federal record — my strongest SFO basis (fact/high).
+  2. **Press-possessive of one named individual.** A headline attributing the
+     office to a single named person — "Jeff Bezos' family office", "the
+     family office of Ray Dalio" — is affirmative single-family evidence: an
+     office belonging to one person serves one family by definition. Labeled
+     inference/medium, with the exact headline + URL stored as the evidence.
+     The rule fires ONLY on a person-name possessive; generic names
+     ("Singapore Family Office", "Modern Family Office") never qualify this
+     way. I hand spot-check a sample of these upgrades, and the assessment
+     explicitly permits manual spot-checks.
 - **MFO (multi-family office):** evidence it serves MULTIPLE families/clients —
   published services, fee schedule, "become a client"/onboarding, many ADV
   clients.
