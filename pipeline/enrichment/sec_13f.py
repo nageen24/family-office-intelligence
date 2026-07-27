@@ -37,15 +37,18 @@ def _tag(xml: str, tag: str) -> Optional[str]:
     return m.group(1).strip() if m else None
 
 
-def _fmt_value_thousands(raw: str) -> Optional[str]:
-    """tableValueTotal: thousands in pre-2023 style, full dollars post-2023 —
+def _fmt_value_thousands(raw: str, entries: Optional[str] = None) -> Optional[str]:
+    """tableValueTotal: thousands in pre-2023 filings, full dollars post-2023 —
     and filers are inconsistent about which they use.
 
-    Disambiguation: a 13F filer must hold >= $100M. If the raw number already
-    reads as >= $100M in plain dollars, it IS plain dollars (reading it as
-    thousands would claim a $100B+ giant, which unknown filers are not).
-    Otherwise it's the thousands convention. Zero/garbage -> None (an honest
-    blank beats a fake $0).
+    Robust disambiguation via the holdings count (tableEntryTotal): the average
+    position = total / holdings. If reading the total as *thousands* implies an
+    average position above $1B, that's implausible (individual 13F holdings are
+    almost never that large on average), so the total is really in *dollars*.
+    This correctly split Duquesne (70 holdings, thousands, $3.38B, ~$48M/pos)
+    from Standard (31 holdings — thousands would be $3.1B/pos, absurd — so
+    dollars, $96.78M). Falls back to a $100M threshold when holdings unknown.
+    Zero/garbage -> None (an honest blank beats a fake $0).
     """
     try:
         n = int(raw.replace(",", "").split(".")[0])
@@ -53,7 +56,17 @@ def _fmt_value_thousands(raw: str) -> Optional[str]:
         return None
     if n <= 0:
         return None
-    v = n if n >= 100_000_000 else n * 1000
+    try:
+        e = int(entries) if entries else 0
+    except (ValueError, TypeError):
+        e = 0
+
+    if e > 0:
+        avg_if_thousands = (n * 1000) / e
+        v = n if avg_if_thousands > 1_000_000_000 else n * 1000
+    else:
+        v = n if n >= 100_000_000 else n * 1000
+
     if v >= 1_000_000_000:
         return f"${v / 1_000_000_000:.2f}B (13F portfolio value)"
     if v >= 1_000_000:
@@ -119,8 +132,9 @@ def enrich_from_13f(firm: CandidateFirm) -> CandidateFirm:
 
     # --- portfolio value (AUM-class, honestly labeled) ---
     raw = _tag(xml, "tableValueTotal")
+    entries = _tag(xml, "tableEntryTotal")
     if raw and firm.aum.is_blank():
-        fmt = _fmt_value_thousands(raw)
+        fmt = _fmt_value_thousands(raw, entries)
         if fmt:
             firm.aum = Cell(
                 value=fmt, source=url,

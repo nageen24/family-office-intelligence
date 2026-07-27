@@ -94,7 +94,15 @@ def _possessive_sfo_evidence(firm: CandidateFirm) -> str | None:
 
 def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
     """Return (type, evidence). Evidence must be independent of the name."""
-    name_says_fo = "family office" in (firm.firm_name or "").lower()
+    name_l = (firm.firm_name or "").lower()
+    name_says_fo = "family office" in name_l
+    # A firm that calls ITSELF multi-family is affirmative MFO evidence — and it
+    # must never fall through to an SFO label (caught: "Covenant Multifamily
+    # Offices" was tagged SFO). This name signal is self-description, not a
+    # bare family-office word, so it's legitimate Rule-2 evidence.
+    if ("multifamily" in name_l or "multi-family" in name_l
+            or "multi family" in name_l):
+        return FirmType.MFO, f"firm's own name states multi-family: '{firm.firm_name}'"
 
     # Text gathered ABOUT the firm (site copy, filing record, news headline) —
     # deliberately excludes the firm's own name, which proves nothing.
