@@ -134,6 +134,26 @@ def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
         # SFO is the honest read (an MFO markets itself; this firm files 13F
         # as a family office and shows no client-serving language).
         return FirmType.SFO, firm.type_evidence
+
+    # SEC-registered OPERATING entity under a family-office name. This is name
+    # PLUS federal registration (a CIK), SEC filings, and a verified business
+    # address/phone from those filings — materially more than "name alone", so
+    # it clears Rule 2 as a real family office. We do NOT claim single vs multi
+    # here (that stays Unconfirmed unless proven), except that a bank/wirehouse-
+    # affiliated FO is by nature multi-family. (Candidate decision, logged.)
+    sec_operating = bool(firm.cik and (not firm.principal_phone.is_blank()
+                                       or firm.hq_location))
+    if sec_operating and name_says_fo:
+        banks = ("bmo", "ubs", "deutsche", "morgan", "goldman", "northern trust",
+                 "citi", "hsbc", "wells fargo", "bny", "jpmorgan", "j.p. morgan")
+        if any(b in name_l for b in banks):
+            return FirmType.MFO, (
+                f"bank/wirehouse-affiliated SEC-registered family office "
+                f"(CIK {firm.cik}, verified filing address/phone)")
+        return FirmType.UNCONFIRMED, (
+            f"SEC-registered operating entity (CIK {firm.cik}) with verified "
+            f"filing address/phone; single- vs multi-family split unproven")
+
     if press_fo and name_says_fo:
         # Independent press/filing text describes it as a family office.
         return FirmType.UNCONFIRMED, (

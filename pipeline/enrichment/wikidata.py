@@ -25,7 +25,12 @@ BAD_DESC = ("film", "song", "album", "given name", "family name", "surname",
             "human settlement", "village", "town", "city", "county", "genus",
             "species", "university", "college", "school", "footballer",
             "politician", "actor", "musician", "singer", "writer", "river",
-            "mountain", "born ", "american businessman", "businessperson")
+            "mountain", "born ", "american businessman", "businessperson",
+            # tech/other entities that share a firm's acronym (PMG -> Proxmox
+            # Mail Gateway "management software" slipped the finance filter)
+            "software", "hardware", "application", "operating system",
+            "protocol", "video game", "programming", "website", "web browser",
+            "disease", "condition", "medal", "award", "band", "airport")
 
 # the top hit must look like a finance/company entity to be trusted — this is
 # what stops "Duquesne Family Office" -> "Duquesne University" (duq.edu).
@@ -76,7 +81,10 @@ def find_website_wikidata(firm_name: str, *, delay: float = 0.5) -> Optional[str
     # Try the full name, then the name without a "Family Office" suffix.
     candidates = [firm_name]
     stem = firm_name.split(" Family Office")[0].strip()
-    if stem and stem != firm_name:
+    # Skip a stem that is a short/acronym token — "PMG", "CVA", "AC" collide
+    # with unrelated entities (Proxmox Mail Gateway, etc.). Only stem-search a
+    # distinctive multi-word or long name.
+    if stem and stem != firm_name and len(stem) >= 5 and " " in stem:
         candidates.append(stem)
 
     for cand in candidates:
