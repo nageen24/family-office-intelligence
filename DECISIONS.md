@@ -288,6 +288,41 @@ I kept testing the live product like a real user instead of trusting it, and cau
 
 Why I'm logging these: none were caught by the green test suite or a quick demo — they only surface when a human actually reads the output and asks "is this what a client would want to see?" That check was mine.
 
+## 2026-07-28 — Fighting the SEC source-concentration (my decision, late in the build)
+
+Reviewing the finished file, I flagged my own biggest risk: 88% of the 50 were
+discovered through SEC (CIK + 13F). The assessment is explicit that a file that is
+one source copied at scale does not advance — verification can't recover firms a
+source never showed you. Enriching the SEC firms harder (which is what the tested
+tools do well) would have made the concentration *worse*, not better. So I needed
+genuine non-SEC *discovery*, and the honest problem is that Rule-2 proof for
+non-SEC firms is hard here: OpenCorporates needs a paid key, Google/DDG search is
+IP-blocked in this environment, and 990 foundations don't qualify (a family
+foundation is not itself a family office).
+
+**What worked — Wikidata as a discovery source.** Wikidata carries a structured,
+citable class: instance-of "family office" (Q751314). That P31 claim is
+independent affirmative evidence (not the firm's own name), and P856 gives the
+official website, which also clears the existence gate. A SPARQL query returned 14
+real, non-SEC family offices — including marquee single-family offices that never
+file 13F: **DFO Management** (Michael Dell), **Builders Vision** (Lukas Walton),
+Korys, Revisio. All 14 qualified under a new `classify_firm` branch that accepts
+the Wikidata P31 basis. This is exactly the "hidden SFO" the assessment prizes.
+
+**Ranking decision.** These non-SEC firms have a website but little contact intel,
+so the pure value score buried them below SEC firms. I added a **non-SEC discovery
+premium — but only for firms that still have a website** (so it lifts reachable
+records, not thin filler). This encodes the doc's own stated hierarchy (real
+discovery > convenient sourcing) rather than gaming it. Result: SEC concentration
+**88% → 76%**, with 12/50 non-SEC including hidden SFOs. I accepted the trade — a
+little SEC contact richness (phone 44→40) for real discovery diversity.
+
+**What I refused.** I did not relabel the Dell/Walton offices as SFO despite being
+near-certain they are single-family — without a firm's-own-statement they stay
+Unconfirmed. Inflating the SFO count is the worst error in this domain. And 76% is
+still SEC-majority; I'm documenting that as a live limitation, not claiming I
+solved it.
+
 ## 2026-07-28 — Fitting whole-corpus answers inside the serverless deadline (my decision)
 
 Once type/list/rank questions started feeding the LLM all ~50 records, the live deployment began hitting Vercel's 60-second function limit (a `504 FUNCTION_INVOCATION_TIMEOUT`) — two sequential 70B calls over 50 full contact-blurbs, on a free LLM tier that sometimes stalls, simply didn't fit. Three changes, each with a reason:

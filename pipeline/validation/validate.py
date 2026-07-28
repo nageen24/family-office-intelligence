@@ -168,6 +168,16 @@ def classify_firm(firm: CandidateFirm) -> Tuple[FirmType, str]:
         # Independent press/filing text describes it as a family office.
         return FirmType.UNCONFIRMED, (
             "described as family office in gathered text; SFO/MFO split unproven")
+
+    # Wikidata structured classification: instance-of "family office" (Q751314)
+    # is an independent, citable basis (not the firm's own name), so it clears
+    # Rule 2 as a real family office. Single-vs-multi stays unproven unless the
+    # markers above fired. (Candidate decision — logged in DECISIONS.md.)
+    if firm.discovery_source and "Wikidata" in firm.discovery_source:
+        return FirmType.UNCONFIRMED, (
+            "Wikidata classifies this entity as a family office (instance of "
+            "Q751314 'family office'); single- vs multi-family split unproven")
+
     return FirmType.UNCONFIRMED, "no affirmative family-office evidence found"
 
 

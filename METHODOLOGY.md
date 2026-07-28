@@ -10,15 +10,21 @@ here match `data/final/dataset.csv`.
 The pipeline treats *finding a firm* and *proving facts about it* as different
 jobs with different sources (per the assessment's sourcing rule).
 
-**Discovery sources** (where a firm was first surfaced):
-- **SEC CIK registry** (entity-name scan for "Family Office") — 38/50
-- **SEC EDGAR full-text search** — 6/50
+**Discovery sources** (where a firm was first surfaced) — delivered 50:
+- **SEC CIK registry** (entity-name scan for "Family Office") — 34/50
+- **SEC EDGAR full-text search** — 4/50
+- **Wikidata** (SPARQL: instance-of "family office", Q751314) — 6/50
 - **Google News RSS** (named family offices in the news) — 6/50
 
-Additional discovery connectors are built and run into the candidate pool
-(ProPublica Form 990 for hidden family foundations, OpenCorporates, Wikidata),
-but few of their candidates cleared firm-level qualification, so they contribute
-little to the final 50. **This is the file's main blind spot — see below.**
+That is **38/50 (76%) SEC** and **12/50 non-SEC**. SEC still dominates — see the
+blind spot below — but the non-SEC additions are deliberately the *hardest and
+most valuable* records: Wikidata surfaced marquee single-family offices that never
+file 13F (e.g. **DFO Management** = Michael Dell's family office, **Builders
+Vision** = Lukas Walton's, Korys, Revisio), and news surfaced active named offices
+(Dalio, Kirloskar, UBS). ProPublica Form 990 and OpenCorporates connectors also
+run into the pool; 990 foundations mostly fail firm-level qualification (a family
+*foundation* is not itself a family office) and OpenCorporates needs a paid key,
+so they contribute little.
 
 **Proof / enrichment sources** (used to establish or verify a fact):
 - **SEC 13F `primary_doc.xml`** — principal signer name + title + phone, and the
@@ -56,22 +62,27 @@ corrected; undeliverable/placeholder values are not shipped).
 
 ## What the numbers are, honestly (delivered 50)
 
-- principal_name 34 · principal_title 35 · principal_phone 44 · principal_email 8
-- aum 35 · website 31 · recent_signal 17 · investing_thesis 3
-- Contact reachability is strong (phone 44/50); email and current-signal coverage
-  are the weakest value cells.
+- principal_name 32 · principal_phone 40 · principal_email 10 · aum 33
+- website 34 · recent_signal 21 · investing_thesis 3
+- Contact reachability is strong (phone 40/50); email and thesis are the weakest
+  value cells. Bringing non-SEC firms into the 50 traded a little SEC contact
+  richness (phone 44→40) for discovery diversity and reachable websites (31→34) —
+  a deliberate choice, since the doc scores real discovery over convenient sourcing.
 
 ## Material blind spots that remain
 
-1. **Source concentration.** 44/50 firms were discovered through SEC (CIK + EDGAR).
-   Verification proves facts about the firms found; it cannot recover firms SEC
-   never showed us. SEC-13F discovery structurally over-represents family offices
-   large enough to hold >$100M in US equities and file — and under-represents the
-   small, invisible single-family offices that are the highest-value prize. This is
-   the file's biggest limitation, and I'm stating it plainly rather than hiding it.
-2. **SFO thinness.** Only 3 confirmed SFOs, for the same reason — the invisible
-   ones don't file 13F. The non-SEC discovery connectors were built to reach them
-   but yielded few *provable* family offices in the time available.
+1. **Source concentration.** Still **76% SEC** (38/50). The non-SEC push (Wikidata +
+   news) cut it from an earlier 88%, but SEC remains the majority. The reason is
+   structural: SEC-13F discovery over-represents family offices large enough to
+   hold >$100M in US equities and file, and the free non-SEC channels that could
+   balance it are constrained here — OpenCorporates needs a paid key, Google/DDG
+   search is IP-blocked in this environment, and Wikidata only covers offices
+   notable enough to have an entry. I'm stating this plainly rather than hiding it.
+2. **SFO thinness (labelled).** Only 3 *confirmed* SFOs — but several delivered
+   non-SEC records are almost certainly single-family (DFO Management/Dell,
+   Builders Vision/Walton). I left them **Unconfirmed** rather than assert SFO
+   without a firm's-own-statement; relabeling to inflate the SFO count is exactly
+   what the assessment penalises.
 3. **Principal email + LinkedIn** are thin (email 8/50, LinkedIn 0/50); 13F gives
    names and filer phone, not personal email/LinkedIn, which need a separate,
    slower enrichment pass.

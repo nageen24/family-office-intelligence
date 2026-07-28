@@ -30,6 +30,19 @@ QUERIES = [
     '"family office" commits fund',
     '"family office" acquires',
     '"family office" backs',
+    # Widen non-SEC discovery: more activity verbs surface more distinct named
+    # family offices (each headline is Rule-2 evidence + a dated signal), which
+    # directly counters the SEC-heavy discovery concentration.
+    '"family office" launches',
+    '"family office" appoints',
+    '"family office" leads round',
+    '"family office" allocates',
+    '"family office" opens',
+    '"family office" names CIO',
+    '"family office" invests startup',
+    '"family office" real estate',
+    '"single family office" invests',
+    '"single family office" hires',
 ]
 
 # Only accept a real firm name ending in "Family Office". Broader suffixes

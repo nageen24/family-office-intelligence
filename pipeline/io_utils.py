@@ -90,6 +90,14 @@ def value_score(c: CandidateFirm) -> int:
     ftype = c.firm_type.value if hasattr(c.firm_type, "value") else c.firm_type
     if ftype == "SFO":
         score += 18                                             # SFO premium
+    # Non-SEC discovery premium: the assessment scores real market discovery
+    # higher than convenient single-source sourcing, so a firm found OUTSIDE the
+    # SEC filings (news, Wikidata) is worth more to the file's diversity — but
+    # only when it's still reachable (has a website), so this lifts genuine
+    # records, not thin filler.
+    src = c.discovery_source or ""
+    if "SEC" not in src and c.website:
+        score += 14
     return score
 
 
