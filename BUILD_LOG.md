@@ -139,3 +139,9 @@ This is the point of the exercise — not trusting green tests and a nice demo, 
 - Added AUM extraction (only accepts a $-figure sitting next to asset/AUM/manage language).
 
 **Still pending:** (a) git re-auth as nageen24 (push denied to ewd-ai; commits safe locally); (b) the free Google search key for #1 (website scraping — DDG blocked here). Full enrichment run waits on the Google key so the website-based contacts are real too.
+
+**A second RAG bug I caught the same way — by kind, not by case:**
+- The everyday queries worked, so the RAG looked done again. I didn't accept it. I suspected it still wasn't truly answering off the CSV and told the AI to **check generically why classes of question fail**, not patch one query.
+- Found two dead question-types: (1) **naming a firm** ("email of Duquesne") — the firm never made the semantic top-8, so it declined as if we had no data, when we'd simply never retrieved it; (2) **superlative/aggregate** ("largest AUM", "how many") — a top-8 slice can't answer over 50 records; the true largest (Cva $949B) wasn't even retrieved.
+- **Generic fix, retrieval layer:** named firms are injected by name regardless of score (and lift the gate); aggregate/superlative queries get the whole corpus. Both regression-tested. Full reasoning in DECISIONS.md (2026-07-28, "answered fine but couldn't find firms by name" entry).
+- Flagged a separate upstream data bug: implausible AUM figures ($949B/$516B) from misparsed 13F totals — RAG answers them faithfully, numbers need an enrichment fix.

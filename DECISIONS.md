@@ -265,6 +265,23 @@ I directed that each part of the RAG be **tested as it was built**, not "written
 
 This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
 
+## 2026-07-28 — The RAG answered "fine" but couldn't find firms by name or rank them (my catch)
+
+Same instinct as the count/blurb bug: I don't trust a demo that *looks* right. Testing the live RAG, the everyday questions worked — "firms in New York", "who has a recent signal" — so it looked done. But I suspected something was still **blocking it from answering off the real CSV**, so instead of reporting one broken query I told the AI to stop patching specific cases and **check generically why whole classes of question fail**.
+
+That framing is what found it. The root cause was never the CSV connection — data flowed fine. It was the **retrieval layer**: pure semantic top-8 on a lightweight static embedding. Two entire question types an investor-relations user asks constantly never reached the LLM:
+
+1. **Naming a firm outright** — "email of Duquesne Family Office". A static embedding barely moves for a proper noun, so Duquesne never made the top-8. The LLM only saw 8 *other* firms, so it declined — and the decline *looked* like "we have no data", when the truth was **the system never even looked at the firm the user named.** Ask about a firm that happened to land in the top-8 and it worked; ask about any other and it silently failed. That inconsistency is exactly the "looks fine but isn't" trap.
+2. **Superlative / aggregate** — "which firm has the largest AUM", "how many in New York". A top-8 semantic slice can't answer a question whose true answer may sit in the other 42 records. Proof: the real largest AUM (Cva, $949B) wasn't in the retrieved 8 at all — the system would have answered with a smaller firm and been confidently wrong.
+
+**The fix is generic, not per-query, and lives in the retrieval layer (the answer layer stays clean):**
+- **Named-firm injection** — if the query names any firm in the corpus, that exact record is pulled in by name regardless of embedding score, and its presence lifts the score-gate. Now a named firm always reaches the LLM, which can answer honestly — including "we hold Duquesne but have no email on file", which is the *correct* answer, not a blanket decline.
+- **Aggregate intent → whole corpus** — superlative/count/rank queries hand the LLM all 50 records instead of a slice, so it can actually compare and count. "Largest AUM" now returns Cva correctly.
+
+Locked both behind a regression test. This also surfaced a **separate data bug** I'm flagging not fixing here: several AUM figures are implausibly huge ($949B, $516B) — almost certainly misparsed 13F portfolio totals in enrichment. The RAG now answers them faithfully, but the numbers upstream are wrong.
+
+Why this matters: a keyword demo hid two dead question-classes behind a green test suite. The generic check — "why does a *kind* of question fail", not "fix this one query" — is what exposed them.
+
 ## 2026-07-28 — Two-provider LLM failover as error handling (my decision)
 
 The assessment stresses failure handling — the system must "behave sensibly whether a query succeeds, finds nothing, finds partial data, or fails," and a failure must return a readable message, not an error dump. The obvious failure I wanted covered is the one that would take the whole answer layer down: **the LLM provider going out.** Both LLM-1 and LLM-2 run on Groq; if Groq is down, rate-limited, or returns an error, every answer would fail at once.

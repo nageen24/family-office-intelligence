@@ -7,11 +7,18 @@ high enough, the caller should decline rather than answer from weak matches.
 """
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 
 from rag.embed import embed_one
 
 COLLECTION = "firms"
+
+# Generic words shared by most firm names — stripped so name-matching keys on the
+# distinctive part ("Duquesne"), not the boilerplate every firm shares.
+_NAME_STOP = {"family", "office", "offices", "llc", "lp", "ltd", "inc", "llp",
+              "the", "and", "co", "group", "capital", "partners", "services",
+              "trust", "ag", "advisors", "management", "wealth"}
 
 
 @lru_cache(maxsize=1)
@@ -27,6 +34,36 @@ def _client():
     client = QdrantClient(":memory:")
     build_index(client)
     return client
+
+
+@lru_cache(maxsize=1)
+def _corpus():
+    """Every firm payload, fetched once — the index for lexical name matching.
+
+    Semantic top-k alone misses a firm the user names outright (a weak static
+    embedding barely moves for a proper noun like 'Duquesne'), so a named firm
+    would never reach the LLM. This lets us inject the exact record by name.
+    """
+    pts = _client().scroll(COLLECTION, limit=100000,
+                           with_payload=True, with_vectors=False)[0]
+    return [(p.id, (p.payload.get("firm_name") or "")) for p in pts]
+
+
+def _name_matches(query: str) -> list:
+    """Point-ids of firms the query names explicitly.
+
+    A firm matches when ALL its distinctive name tokens (generic words stripped)
+    appear in the query — so 'email of Duquesne Family Office' matches Duquesne,
+    but a bare 'family office' matches nothing.
+    """
+    q = set(re.findall(r"[a-z0-9]+", query.lower()))
+    ids = []
+    for pid, name in _corpus():
+        toks = [t for t in re.findall(r"[a-z0-9]+", name.lower())
+                if t not in _NAME_STOP and len(t) > 2]
+        if toks and all(t in q for t in toks):
+            ids.append(pid)
+    return ids
 
 
 def _filters(query: str):
@@ -53,4 +90,19 @@ def retrieve(query: str, k: int = 8, min_score: float = 0.25) -> dict:
         COLLECTION, query=vec, query_filter=_filters(query), limit=k).points
     hits = [p.payload for p in res]
     top = float(res[0].score) if res else 0.0
-    return {"hits": hits, "top_score": top, "gated": (not res) or top < min_score}
+    gated = (not res) or top < min_score
+
+    # Inject any firm the query names outright but semantic search missed. A named
+    # firm is strong evidence, so its presence lifts the score gate — the LLM can
+    # then answer honestly (even "we hold that firm but have no email on file"),
+    # instead of a misleading blanket decline for a firm we actually have.
+    named_ids = _name_matches(query)
+    if named_ids:
+        seen = {h.get("firm_name") for h in hits}
+        named = _client().retrieve(COLLECTION, ids=named_ids[:5], with_payload=True)
+        inject = [p.payload for p in named if p.payload.get("firm_name") not in seen]
+        if inject:
+            hits = inject + hits
+            gated = False
+
+    return {"hits": hits, "top_score": top, "gated": gated}

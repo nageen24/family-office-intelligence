@@ -47,8 +47,10 @@ ANSWERER_SYS = (
     "of records shown to you — if asked how many family offices exist in total, "
     "the answer is {total}. Answer ONLY from the records provided. If a specific "
     "fact is not present in the records, say it is not available — never invent "
-    "names, emails, phone numbers, or figures. Be concise and plain-English; do "
-    "not expose internal field names or jargon.")
+    "names, emails, phone numbers, or figures. Reply in plain English sentences "
+    "and, when listing multiple firms, a simple numbered list — do NOT use "
+    "markdown tables, pipe characters, or ** bold ** symbols. Do not expose "
+    "internal field names or jargon.")
 
 VALIDATOR_SYS = (
     "You audit a draft answer against the source records it was based on. The "
@@ -81,8 +83,23 @@ def answer(query: str) -> dict:
     if not query or not query.strip():
         return {"text": EMPTY_MSG, "status": "empty", "verdict": "declined", "sources": []}
 
+    # Enumerate intent ("list all", "name every", "all 50") needs the whole
+    # corpus in context, not just the top-k, or it can only list a slice.
+    ql = query.lower()
+    enumerate_all = any(p in ql for p in
+                        ("all ", "list every", "name all", "every family office",
+                         "show all", "name every", "list all"))
+    # Superlative / aggregate ("largest AUM", "how many in NY", "rank by") can't be
+    # answered from a semantic top-k slice — the true answer may sit outside it. The
+    # corpus is small, so hand the LLM every record and let it compare / count.
+    aggregate = any(p in ql for p in
+                    ("largest", "biggest", "highest", "smallest", "lowest",
+                     "most ", "top ", "rank", "how many", "count", "average",
+                     "compare", "total aum", "sort"))
+    k = corpus_size() if ((enumerate_all or aggregate) and corpus_size()) else 8
+
     try:
-        r = retrieve(query)
+        r = retrieve(query, k=k)
     except Exception:
         return {"text": ERROR_MSG, "status": "error", "verdict": "declined", "sources": []}
 
