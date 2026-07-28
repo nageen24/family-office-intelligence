@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from rag.retrieve import retrieve, _client, COLLECTION
+from rag.retrieve import retrieve, _client, COLLECTION, is_single_query, is_multi_query
 from rag.llm import chat as _chat
 
 
@@ -51,6 +51,23 @@ ANSWERER_SYS = (
     "and, when listing multiple firms, a simple numbered list — do NOT use "
     "markdown tables, pipe characters, or ** bold ** symbols. Do not expose "
     "internal field names or jargon.")
+
+# Appended for firm-type questions. The user's decision (DECISIONS.md 2026-07-28):
+# answer in two parts — the firms confirmed as the asked type first, then the
+# verified firms whose single-vs-multi label isn't yet proven, clearly separated
+# so the reader never mistakes "unconfirmed type" for "unverified firm".
+TYPE_LIST_GUIDE = (
+    "\n\nThis is a firm-TYPE question ({kind}). Structure the answer in two parts, "
+    "reading each record's stated type:\n"
+    "1. First, list ONLY the firms whose type is confirmed as {code} — the exact "
+    "type asked for.\n"
+    "2. Then a separator line: state that the firms above are 100% confirmed {kind}, "
+    "and that the dataset also holds the verified firms below whose type (single vs "
+    "multi family) is simply not yet confirmed — the records themselves are correct "
+    "and verified, only the single/multi label is missing. Then list those firms "
+    "(the ones with type Unconfirmed).\n"
+    "Never drop the second list, and never present an Unconfirmed firm as if its "
+    "type were proven.")
 
 VALIDATOR_SYS = (
     "You audit a draft answer against the source records it was based on. The "
@@ -96,7 +113,12 @@ def answer(query: str) -> dict:
                     ("largest", "biggest", "highest", "smallest", "lowest",
                      "most ", "top ", "rank", "how many", "count", "average",
                      "compare", "total aum", "sort"))
-    k = corpus_size() if ((enumerate_all or aggregate) and corpus_size()) else 8
+    # A type question pulls the confirmed firms of that type + all Unconfirmed
+    # ones (retrieve.py widens the filter), so it needs the whole corpus in view.
+    single_q, multi_q = is_single_query(ql), is_multi_query(ql)
+    type_query = single_q or multi_q
+    k = (corpus_size() if ((enumerate_all or aggregate or type_query) and corpus_size())
+         else 8)
 
     try:
         r = retrieve(query, k=k)
@@ -111,10 +133,19 @@ def answer(query: str) -> dict:
     ctx = _context(r["hits"])
     sources = [h.get("firm_name") for h in r["hits"]]
     answerer_sys = ANSWERER_SYS.format(total=corpus_size() or "the")
+    validator_sys = VALIDATOR_SYS.format(total=corpus_size() or "the")
+    if type_query:
+        guide = TYPE_LIST_GUIDE.format(
+            kind="multi-family offices" if multi_q else "single-family offices",
+            code="MFO" if multi_q else "SFO")
+        # Both LLMs get the guide so the validator treats the two-section answer
+        # (confirmed + clearly-labelled unconfirmed) as correct, not an overreach.
+        answerer_sys += guide
+        validator_sys += guide
 
     try:
         draft = _chat(answerer_sys, f"Records:\n{ctx}\n\nQuestion: {query}")
-        verdict = _chat(VALIDATOR_SYS.format(total=corpus_size() or "the"),
+        verdict = _chat(validator_sys,
                         f"Records:\n{ctx}\n\nQuestion: {query}\n\nDraft answer: {draft}")
     except Exception:
         # LLM/network failure is OUR problem — say so, don't fake a decline.

@@ -26,7 +26,7 @@ function card(status, text, sources) {
     const n = (sources || []).length;
     const based = document.createElement("span");
     based.className = "based";
-    based.textContent = n ? `Top ${n} match${n > 1 ? "es" : ""} for this question:` : "";
+    based.textContent = n ? `Answer drawn from ${n} verified record${n > 1 ? "s" : ""}:` : "";
     meta.appendChild(based);
     (sources || []).forEach(s => {
       const c = document.createElement("span");

@@ -66,14 +66,33 @@ def _name_matches(query: str) -> list:
     return ids
 
 
+def is_single_query(q: str) -> bool:
+    q = q.lower()
+    return ("single family" in q or "single-family" in q or " sfo" in q
+            or q.startswith("sfo"))
+
+
+def is_multi_query(q: str) -> bool:
+    q = q.lower()
+    return ("multi family" in q or "multi-family" in q or "multifamily" in q
+            or " mfo" in q or q.startswith("mfo"))
+
+
 def _filters(query: str):
-    from qdrant_client.models import Filter, FieldCondition, MatchValue
+    from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
     q = query.lower()
     conds = []
-    if "single family" in q or "single-family" in q or " sfo" in q or q.startswith("sfo"):
-        conds.append(FieldCondition(key="firm_type", match=MatchValue(value="SFO")))
-    elif "multi family" in q or "multi-family" in q or "mfo" in q:
-        conds.append(FieldCondition(key="firm_type", match=MatchValue(value="MFO")))
+    # A type question returns the CONFIRMED firms of that type PLUS the
+    # Unconfirmed ones (verified firms whose single-vs-multi label isn't proven).
+    # The answer layer renders them as two sections; here we just make sure both
+    # sets reach the LLM. Single-family markers are checked first because
+    # "single-family" also contains "family".
+    if is_single_query(q):
+        conds.append(FieldCondition(key="firm_type",
+                                    match=MatchAny(any=["SFO", "Unconfirmed"])))
+    elif is_multi_query(q):
+        conds.append(FieldCondition(key="firm_type",
+                                    match=MatchAny(any=["MFO", "Unconfirmed"])))
     if "email" in q:
         conds.append(FieldCondition(key="has_email", match=MatchValue(value=True)))
     return Filter(must=conds) if conds else None

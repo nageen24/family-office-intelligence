@@ -265,6 +265,18 @@ I directed that each part of the RAG be **tested as it was built**, not "written
 
 This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
 
+## 2026-07-28 — How to answer firm-TYPE questions: confirmed first, then honest "unconfirmed" section (my decision)
+
+Testing "list all multi-family offices" I got only 2 back, and single-family only 3. My first instinct was "bug" — but the diagnosis showed it's the *data being honest*: only 2 firms are proven MFO and 3 proven SFO; the other 45 are typed **Unconfirmed** because the pipeline never proved them single vs multi. So a strict type filter is technically correct but a bad answer — a user asking for multi-family offices sees "2" and assumes the dataset is thin, when we actually hold 47 relevant firms and just haven't labelled the split for 45 of them.
+
+**My decision on how it should answer** (not a filter tweak — an answer-shape rule): when someone asks for a type, give them **two clearly separated parts in the same reply**:
+1. **First, the pure answer** — the firms 100% confirmed as the type they asked for (the 2 MFOs, or the 3 SFOs).
+2. **Then, below a separator line**, a plain statement: *the firms above are 100% confirmed as that type; the dataset also holds these verified firms whose single-vs-multi label simply isn't confirmed yet* — the records are correct and verified, only the SFO/MFO tag is missing — followed by that list.
+
+This is the honest-and-complete answer: it never hides the 45 real firms, never dresses an Unconfirmed firm up as a proven type, and makes the distinction the reader's to see. It fits the whole project's epistemic stance — we state what we know, mark what we don't, and never bluff.
+
+**How it's built:** the retrieval filter for a type question now returns *that type + Unconfirmed* (so both sets reach the LLM), and both the answerer and the validator get a two-section instruction so the validator treats the labelled unconfirmed list as correct, not an overreach. I also fixed two mechanical bugs the same investigation exposed: "multifamily" written as one word slipped the type filter entirely (dumping all 50), and the UI's "Top N matches" label was really just the retrieval-slice size — reworded to the honest "Answer drawn from N verified records". Regression-tested at the filter level.
+
 ## 2026-07-28 — The RAG answered "fine" but couldn't find firms by name or rank them (my catch)
 
 Same instinct as the count/blurb bug: I don't trust a demo that *looks* right. Testing the live RAG, the everyday questions worked — "firms in New York", "who has a recent signal" — so it looked done. But I suspected something was still **blocking it from answering off the real CSV**, so instead of reporting one broken query I told the AI to stop patching specific cases and **check generically why whole classes of question fail**.
