@@ -35,6 +35,23 @@ def test_approve_passes_draft_through(monkeypatch):
     assert r["sources"] == ["X"]
 
 
+def test_multi_type_answer_is_three_tiered(monkeypatch):
+    # Confirmed MFO, then plural-named "likely" MFO, then the unconfirmed rest —
+    # deterministic, no LLM.
+    hits = [
+        {"firm_name": "Covenant Multifamily Offices, Llc", "firm_type": "MFO"},
+        {"firm_name": "Genspring Family Offices Llc", "firm_type": "Unconfirmed"},
+        {"firm_name": "Duquesne Family Office LLC", "firm_type": "Unconfirmed"},
+    ]
+    monkeypatch.setattr(A, "corpus_size", lambda: 50)
+    monkeypatch.setattr(A, "retrieve",
+                        lambda q, **k: {"hits": hits, "top_score": 0.9, "gated": False})
+    t = A.answer("list all multi family offices")["text"]
+    assert "Confirmed multi-family offices" in t and "Covenant" in t
+    assert "Very likely multi-family" in t and "Genspring Family Offices Llc" in t
+    assert "isn't confirmed yet" in t and "Duquesne" in t
+
+
 def test_empty_query():
     r = A.answer("   ")
     assert r["status"] == "empty"

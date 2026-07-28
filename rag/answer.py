@@ -14,6 +14,7 @@ requires.
 """
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 
 from rag.retrieve import retrieve, _client, COLLECTION, is_single_query, is_multi_query
@@ -58,30 +59,51 @@ ANSWERER_SYS = (
     "use markdown tables, pipe characters, or ** bold ** symbols. Do not expose "
     "internal field names or jargon.")
 
-def _format_type_answer(kind: str, confirmed: list, unconfirmed: list) -> str:
-    """The user's two-section firm-type answer (DECISIONS.md 2026-07-28), built
-    deterministically from the records: the firms confirmed as the asked type
-    first, then the verified firms whose single-vs-multi label isn't proven yet —
-    clearly separated so the reader never mistakes "unconfirmed type" for
-    "unverified firm". No LLM: it can't hallucinate and it can't time out.
+def looks_likely_multi(name: str) -> bool:
+    """A name-evidence signal that an Unconfirmed firm is probably multi-family:
+    the name is plural ("... Family Offices") or literally says multi-family. It's
+    the same naming logic that let us confirm 'Covenant Multifamily Offices' — but
+    a notch weaker (plural could be stylistic), so these go in a separate 'likely'
+    tier, never asserted as confirmed.
+    """
+    n = name.lower()
+    return ("multifamily" in n or "multi-family" in n
+            or re.search(r"family offices\b", n) is not None)
+
+
+def _numbered(names: list) -> list:
+    return [f"{i}. {n}" for i, n in enumerate(names, 1)]
+
+
+def _format_type_answer(kind: str, confirmed: list, likely: list,
+                        unconfirmed: list) -> str:
+    """The user's graded firm-type answer (DECISIONS.md 2026-07-28), built
+    deterministically from the records, strongest evidence first:
+      1. confirmed as the asked type,
+      2. (multi only) very likely by name evidence — plural "Family Offices" /
+         "Multifamily" — but not formally confirmed,
+      3. verified firms whose single-vs-multi label simply isn't proven yet.
+    Tiers with no members are omitted. No LLM: can't hallucinate, can't time out.
     """
     singular = kind[:-1]  # "multi-family offices" -> "multi-family office"
     lines = []
     if confirmed:
-        lines.append(f"Firms confirmed as {kind}:")
-        lines += [f"{i}. {n}" for i, n in enumerate(confirmed, 1)]
-        lead = f"The {len(confirmed)} firm(s) above are 100% confirmed {kind}. "
+        lines.append(f"Confirmed {kind}:")
+        lines += _numbered(confirmed)
     else:
         lines.append(f"No firm in the dataset is yet confirmed as a {singular}.")
-        lead = ""
+    if likely:
+        lines += ["", "—",
+                  f"Very likely {kind}, on name evidence — each is named in the "
+                  f"plural (\"Family Offices\" / \"Multifamily\"), which signals it "
+                  f"serves multiple client families — though not formally confirmed:"]
+        lines += _numbered(likely)
     if unconfirmed:
-        lines.append("")
-        lines.append("—")
-        lines.append(
-            f"{lead}The dataset also holds these verified firms whose type "
-            f"(single vs multi family) is simply not confirmed yet — the records "
-            f"are correct and verified, only the single/multi label is missing:")
-        lines += [f"{i}. {n}" for i, n in enumerate(unconfirmed, 1)]
+        lines += ["", "—",
+                  "Verified firms whose type (single vs multi family) simply isn't "
+                  "confirmed yet — the records are correct and verified, only the "
+                  "single/multi label is missing:"]
+        lines += _numbered(unconfirmed)
     return "\n".join(lines)
 
 
@@ -178,9 +200,17 @@ def answer(query: str) -> dict:
         code = "MFO" if multi_q else "SFO"
         kind = "multi-family offices" if multi_q else "single-family offices"
         confirmed = [h.get("firm_name") for h in r["hits"] if h.get("firm_type") == code]
-        unconfirmed = [h.get("firm_name") for h in r["hits"]
-                       if h.get("firm_type") == "Unconfirmed"]
-        return {"text": _format_type_answer(kind, confirmed, unconfirmed),
+        unconf = [h.get("firm_name") for h in r["hits"]
+                  if h.get("firm_type") == "Unconfirmed"]
+        # Multi-family gets a middle tier: Unconfirmed firms whose plural name is
+        # name-evidence they're likely MFO. Single-family has no equivalent name
+        # signal (a surname office can still be multi), so its middle tier is empty.
+        if multi_q:
+            likely = [n for n in unconf if looks_likely_multi(n)]
+            rest = [n for n in unconf if not looks_likely_multi(n)]
+        else:
+            likely, rest = [], unconf
+        return {"text": _format_type_answer(kind, confirmed, likely, rest),
                 "status": "answered", "verdict": "approved", "sources": sources}
 
     ctx = _compact_context(r["hits"]) if whole_corpus else _context(r["hits"])

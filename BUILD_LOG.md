@@ -156,3 +156,8 @@ This is the point of the exercise — not trusting green tests and a nice demo, 
 - **Wording-dependent answers** — "list all multi fo" (shorthand) missed type-detection and fell to the generic path (2 firms, no unconfirmed section), unlike "multi family offices". Broadened detection ("multi fo"/"single fo") so every phrasing gets the same two-section answer.
 - **Confusing "drawn from 8 records" label** on a single-firm answer — detail queries retrieve the 8 best matches (not all 50, which is reserved for list/rank/count). Reworded to "Top N most-relevant records searched" so it reads as a shortlist, not the answer's contents.
 - Reasoning in DECISIONS.md (2026-07-28, "three more RAG faults" entry). These only surface when a human reads the output as a client would — the green suite didn't flag them.
+
+**Questioned my own "only 2 multi-family" number → three-tier answer:**
+- Checked the data: "2" is what we could *prove*, not a claim only 2 firms are multi-family (the other ~45 say "single- vs multi-family unproven"; several are well-known MFOs). Flattening them all into one bucket wastes signal.
+- **My call:** multi-family answers now show three evidence tiers — (1) confirmed, (2) very likely by plural name evidence ("Family Offices"/"Multifamily": Genspring, Colony, Heritage, Riverglades), stated with the reason, (3) unproven rest. The epistemic layer showing through in the answer: fact → inference → honest unknown. Single-family stays two-tier (no reliable "likely single" name signal). Deterministic, +1 regression test (20 total). Reasoning in DECISIONS.md.
+- **UI:** added a short note under the search bar explaining the two-agent verification (why answers take a few seconds, and that they carry no invented facts).

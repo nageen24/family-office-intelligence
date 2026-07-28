@@ -265,6 +265,17 @@ I directed that each part of the RAG be **tested as it was built**, not "written
 
 The suite grew from 15 to 19 as I fixed the retrieval bugs this session (named-firm injection, the two-section type answer, the "multifamily" filter gap) — each fix landed with a regression test so the bug can't silently return. This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
 
+## 2026-07-28 — "Are we sure only 2 are multi-family?" → a graded, three-tier answer (my call)
+
+I pushed back on my own "only 2 multi-family offices" number. Checking the data, the 2 is honest but conservative: it's the count the pipeline could *prove* (Deutsche Oppenheim; Covenant, whose name literally says "Multifamily"). It is **not** a claim that only 2 firms are multi-family — the other ~45 carry an explicit "single- vs multi-family unproven" note, and realistically several are well-known multi-family offices (Pathstone, Callan, Geller, Genspring, Colony). We just didn't hold a firm's own statement, so we didn't assert it.
+
+But flattening all 45 into one "unconfirmed" bucket throws away real signal. Four of them are named in the **plural — "… Family Offices" / "Multifamily"** (Genspring, Colony, Heritage, Riverglades), which is the same name-evidence that let us confirm Covenant, just a notch weaker. So my decision: answer a multi-family question in **three tiers, strongest evidence first**:
+1. **Confirmed** multi-family (proven).
+2. **Very likely** multi-family — plural name evidence, stated with its reason, but not formally confirmed.
+3. **Unproven** — verified firms whose single-vs-multi label simply isn't established.
+
+This is the epistemic layer showing through in the answer itself: fact, then reasoned inference, then honest unknown — never blurred together. It's built deterministically (no LLM) from the names, so it's instant and can't drift. Single-family keeps two tiers: a surname office ("Dalio Family Office") can still be multi-family, so there's no equivalent name signal to justify a "likely single" tier — and I won't invent one.
+
 ## 2026-07-28 — Three more RAG faults I caught by using it, and fixed (my catches)
 
 I kept testing the live product like a real user instead of trusting it, and caught three faults the AI had left — each fixed:
