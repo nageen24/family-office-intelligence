@@ -38,13 +38,23 @@ body{
 .chip:hover{color:var(--brand); border-color:var(--brand)}
 
 .verify-note{
-  display:flex; align-items:center; gap:8px; margin:16px 2px 0;
-  font-size:.76rem; line-height:1.45; color:var(--muted);
+  display:flex; align-items:center; gap:10px; margin:16px 0 0;
+  padding:10px 14px; font-size:.8rem; line-height:1.45; font-weight:500;
+  color:var(--brand-ink);
+  background:linear-gradient(90deg, var(--ok-bg), #eef3ff);
+  border:1px solid #cfe7dc; border-left:3px solid var(--ok);
+  border-radius:10px;
 }
 .verify-note .dot{
-  flex:none; width:7px; height:7px; border-radius:50%;
-  background:var(--ok); box-shadow:0 0 0 3px var(--ok-bg);
+  flex:none; width:9px; height:9px; border-radius:50%;
+  background:var(--ok); box-shadow:0 0 0 4px rgba(15,138,95,.18);
+  animation:verifyPulse 1.8s ease-in-out infinite;
 }
+@keyframes verifyPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(15,138,95,.18)}
+  50%    {box-shadow:0 0 0 6px rgba(15,138,95,.05)}
+}
+@media (prefers-reduced-motion: reduce){ .verify-note .dot{animation:none} }
 
 .answer{margin-top:26px}
 .card{
