@@ -265,6 +265,18 @@ I directed that each part of the RAG be **tested as it was built**, not "written
 
 The suite grew from 15 to 19 as I fixed the retrieval bugs this session (named-firm injection, the two-section type answer, the "multifamily" filter gap) — each fix landed with a regression test so the bug can't silently return. This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
 
+## 2026-07-28 — Three more RAG faults I caught by using it, and fixed (my catches)
+
+I kept testing the live product like a real user instead of trusting it, and caught three faults the AI had left — each fixed:
+
+1. **Answers rendered as an unreadable wall of text.** Asking about one firm, the reply came back as a run-on paragraph — location, AUM, phone, website all mashed into prose. Two causes: the answer prompt only ever asked for "plain sentences", and the web page printed the text with `textContent`, which **collapses every newline into a space**, so even a formatted answer flattened. My fix: the answerer now returns one firm's details as a labelled bullet per line (Location / Type / AUM / Contact / Phone / Email / Website), and the page renders with `white-space: pre-wrap` so those lines actually show. Readable at a glance now, not a paragraph to untangle.
+
+2. **The same question gave different answers depending on wording.** "List all multi-family offices" produced my proper two-section answer, but "list all multi **fo**" fell through to the generic LLM path and returned just 2 firms with stray AUM detail and **no unconfirmed section** — inconsistent with the single-family answer. The type-detection was too literal. I broadened it to catch the shorthand ("multi fo", "single fo") so every phrasing lands on the same honest two-section answer. (And to be clear on the recurring "why only 2 multi-family?" — yes, only 2 are *confirmed* MFO; the other 45 are the Unconfirmed section, which is exactly why that section must never be dropped.)
+
+3. **A confusing "drawn from 8 records" line on a single-firm answer.** For a firm-detail question the system retrieves the 8 most-relevant records (focused and fast — it doesn't need all 50; whole-corpus retrieval is reserved for list/rank/count questions). But the label read "Answer drawn from 8 verified records", which made it look like the one-firm answer somehow used 8 firms. Reworded to "Top N most-relevant records searched" so it's clearly the ranked shortlist we searched, not the answer's contents.
+
+Why I'm logging these: none were caught by the green test suite or a quick demo — they only surface when a human actually reads the output and asks "is this what a client would want to see?" That check was mine.
+
 ## 2026-07-28 — Fitting whole-corpus answers inside the serverless deadline (my decision)
 
 Once type/list/rank questions started feeding the LLM all ~50 records, the live deployment began hitting Vercel's 60-second function limit (a `504 FUNCTION_INVOCATION_TIMEOUT`) — two sequential 70B calls over 50 full contact-blurbs, on a free LLM tier that sometimes stalls, simply didn't fit. Three changes, each with a reason:

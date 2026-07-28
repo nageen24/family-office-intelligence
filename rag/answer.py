@@ -47,9 +47,15 @@ ANSWERER_SYS = (
     "of records shown to you — if asked how many family offices exist in total, "
     "the answer is {total}. Answer ONLY from the records provided. If a specific "
     "fact is not present in the records, say it is not available — never invent "
-    "names, emails, phone numbers, or figures. Reply in plain English sentences "
-    "and, when listing multiple firms, a simple numbered list — do NOT use "
-    "markdown tables, pipe characters, or ** bold ** symbols. Do not expose "
+    "names, emails, phone numbers, or figures. FORMAT for easy reading, never a "
+    "run-on paragraph: when giving ONE firm's details, start with a short sentence "
+    "naming the firm, then put each fact on its OWN line as a bullet starting with "
+    "'- ' and a label, e.g.\n"
+    "- Location: ...\n- Type: ...\n- AUM: ...\n- Contact: ...\n- Phone: ...\n"
+    "- Email: ...\n- Website: ...\n"
+    "(only include lines you have data for). When listing MULTIPLE firms, use a "
+    "numbered list, one firm per line. Put every list item on its own line. Do NOT "
+    "use markdown tables, pipe characters, or ** bold ** symbols. Do not expose "
     "internal field names or jargon.")
 
 def _format_type_answer(kind: str, confirmed: list, unconfirmed: list) -> str:

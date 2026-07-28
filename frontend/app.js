@@ -16,7 +16,8 @@ function card(status, text, sources) {
   el.className = "card " + status;
   const p = document.createElement("p");
   p.className = "text";
-  p.textContent = text;
+  p.textContent = text;               // textContent keeps it safe from HTML injection;
+  p.style.whiteSpace = "pre-wrap";    // pre-wrap makes the bullet/numbered newlines show
   el.appendChild(p);
 
   // value cues only on a real answer
@@ -26,7 +27,7 @@ function card(status, text, sources) {
     const n = (sources || []).length;
     const based = document.createElement("span");
     based.className = "based";
-    based.textContent = n ? `Answer drawn from ${n} verified record${n > 1 ? "s" : ""}:` : "";
+    based.textContent = n ? `Top ${n} most-relevant record${n > 1 ? "s" : ""} searched:` : "";
     meta.appendChild(based);
     (sources || []).forEach(s => {
       const c = document.createElement("span");

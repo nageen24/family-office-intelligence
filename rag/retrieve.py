@@ -68,14 +68,14 @@ def _name_matches(query: str) -> list:
 
 def is_single_query(q: str) -> bool:
     q = q.lower()
-    return ("single family" in q or "single-family" in q or " sfo" in q
-            or q.startswith("sfo"))
+    return ("single family" in q or "single-family" in q or "single fo" in q
+            or " sfo" in q or q.startswith("sfo"))
 
 
 def is_multi_query(q: str) -> bool:
     q = q.lower()
     return ("multi family" in q or "multi-family" in q or "multifamily" in q
-            or " mfo" in q or q.startswith("mfo"))
+            or "multi fo" in q or " mfo" in q or q.startswith("mfo"))
 
 
 def _filters(query: str):
