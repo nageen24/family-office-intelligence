@@ -15,7 +15,6 @@ blocked our earlier search work.
 from __future__ import annotations
 
 import os
-import time
 from typing import List, Optional
 
 import requests
@@ -38,6 +37,14 @@ def _configured() -> List[tuple]:
     return [p for p in PROVIDERS if os.getenv(p[2])]
 
 
+# A hosted answer runs against a hard serverless deadline (~60s), and both LLM-1
+# and LLM-2 must fit inside it. So each provider gets a SHORT timeout and we fail
+# straight over to the next one — a degraded primary must cost seconds, not the
+# whole budget. The two independent providers ARE the redundancy; a slow inner
+# retry on a stalling endpoint would just burn the deadline, so there isn't one.
+_TIMEOUT = 18
+
+
 def _call(provider: tuple, system: str, user: str, temperature: float) -> str:
     name, endpoint, env, model = provider
     r = requests.post(
@@ -46,7 +53,7 @@ def _call(provider: tuple, system: str, user: str, temperature: float) -> str:
         json={"model": model, "temperature": temperature,
               "messages": [{"role": "system", "content": system},
                            {"role": "user", "content": user}]},
-        timeout=45,
+        timeout=_TIMEOUT,
     )
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"].strip()
@@ -55,15 +62,11 @@ def _call(provider: tuple, system: str, user: str, temperature: float) -> str:
 def chat(system: str, user: str, temperature: float = 0.0) -> str:
     providers = _configured()
     if not providers:
-        raise RuntimeError("No LLM provider key set (GROQ_API_KEY / NVIDIA_API_KEY)")
+        raise RuntimeError("No LLM provider key set (GROQ_API_KEY / OPENROUTER_API_KEY)")
     last: Optional[Exception] = None
-    for provider in providers:
-        for attempt in range(2):  # one retry per provider on a transient blip
-            try:
-                return _call(provider, system, user, temperature)
-            except Exception as e:
-                last = e
-                if attempt == 0:
-                    time.sleep(1.0)
-        # provider exhausted -> fall through to the next provider
+    for provider in providers:  # try each once; the next provider is the fallback
+        try:
+            return _call(provider, system, user, temperature)
+        except Exception as e:
+            last = e
     raise last

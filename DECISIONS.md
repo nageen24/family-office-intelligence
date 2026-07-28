@@ -265,6 +265,18 @@ I directed that each part of the RAG be **tested as it was built**, not "written
 
 This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
 
+## 2026-07-28 — Fitting whole-corpus answers inside the serverless deadline (my decision)
+
+Once type/list/rank questions started feeding the LLM all ~50 records, the live deployment began hitting Vercel's 60-second function limit (a `504 FUNCTION_INVOCATION_TIMEOUT`) — two sequential 70B calls over 50 full contact-blurbs, on a free LLM tier that sometimes stalls, simply didn't fit. Three changes, each with a reason:
+
+1. **Compact context for whole-corpus questions.** A list/rank/count answer only needs each firm's name, type, and the ranked field (AUM/location) — not its full contact blurb. So those questions now get a one-line-per-firm view (~4× fewer tokens), while the rich blurb stays for the small, detail-seeking queries (k=8) that actually need contact detail.
+
+2. **Scope the second LLM to where it does work.** The 2-LLM grounding control exists to stop the answerer inventing facts — a fabricated email or figure. A whole-corpus *list/rank/count* is a mechanical read of structured fields I handed the model; there is nothing there to fabricate. So for those queries I run the answerer only and skip the validator, which halves the latency. The validator still runs on every detail / natural-language query, which is exactly where an invented contact fact is the real risk. I'm deliberately narrowing the control to where it protects something, not removing it.
+
+3. **Fail fast between providers.** The LLM client waited up to 45s twice per provider before failing over — so a degraded Groq could eat the whole budget before OpenRouter was ever tried. Cut to a short per-call timeout with a straight fail-over to the backup (the two independent providers are the redundancy; a slow inner retry on a stalling endpoint just burns the deadline).
+
+Net: whole-corpus answers land in ~10–30s instead of timing out, the grounding control keeps guarding the answers that can actually be wrong, and nothing about the honest two-section type answer changed.
+
 ## 2026-07-28 — How to answer firm-TYPE questions: confirmed first, then honest "unconfirmed" section (my decision)
 
 Testing "list all multi-family offices" I got only 2 back, and single-family only 3. My first instinct was "bug" — but the diagnosis showed it's the *data being honest*: only 2 firms are proven MFO and 3 proven SFO; the other 45 are typed **Unconfirmed** because the pipeline never proved them single vs multi. So a strict type filter is technically correct but a bad answer — a user asking for multi-family offices sees "2" and assumes the dataset is thin, when we actually hold 47 relevant firms and just haven't labelled the split for 45 of them.

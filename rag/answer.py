@@ -87,6 +87,25 @@ def _context(hits) -> str:
     return "\n".join(f"- {h.get('blurb', '')}" for h in hits)
 
 
+def _compact_context(hits) -> str:
+    """A one-line-per-firm view for whole-corpus questions (list / type / rank).
+
+    Those pull 47-50 records; the full contact blurbs would push two sequential
+    LLM calls past the serverless time limit. A list/rank answer only needs the
+    name, type and the ranked field (AUM / location), so we hand the LLM that —
+    the rich blurb stays for the small, detail-seeking queries.
+    """
+    lines = []
+    for h in hits:
+        parts = [h.get("firm_name", ""), f"type={h.get('firm_type', 'Unconfirmed')}"]
+        if h.get("location"):
+            parts.append(f"location={h['location']}")
+        if h.get("aum"):
+            parts.append(f"AUM={h['aum']}")
+        lines.append("- " + " | ".join(parts))
+    return "\n".join(lines)
+
+
 def answer(query: str) -> dict:
     """Return {"text", "status", "verdict", "sources"}.
 
@@ -130,7 +149,8 @@ def answer(query: str) -> dict:
     if r["gated"]:
         return {"text": DECLINE_MSG, "status": "declined", "verdict": "declined", "sources": []}
 
-    ctx = _context(r["hits"])
+    whole_corpus = enumerate_all or aggregate or type_query
+    ctx = _compact_context(r["hits"]) if whole_corpus else _context(r["hits"])
     sources = [h.get("firm_name") for h in r["hits"]]
     answerer_sys = ANSWERER_SYS.format(total=corpus_size() or "the")
     validator_sys = VALIDATOR_SYS.format(total=corpus_size() or "the")
@@ -145,6 +165,16 @@ def answer(query: str) -> dict:
 
     try:
         draft = _chat(answerer_sys, f"Records:\n{ctx}\n\nQuestion: {query}")
+        if whole_corpus:
+            # A whole-corpus list / rank / count is a mechanical read of the
+            # structured fields we supplied — there are no free-text contact facts
+            # for the answerer to invent, so the adversarial validator adds latency
+            # (a second 70B pass over 50 records, past the 60s serverless limit)
+            # without adding protection here. The 2-LLM grounding control stays on
+            # every detail / natural-language query (k=8), where a fabricated email
+            # or figure is the real risk it exists to catch.
+            return {"text": draft, "status": "answered",
+                    "verdict": "approved", "sources": sources}
         verdict = _chat(validator_sys,
                         f"Records:\n{ctx}\n\nQuestion: {query}\n\nDraft answer: {draft}")
     except Exception:

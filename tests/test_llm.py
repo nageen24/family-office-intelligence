@@ -21,7 +21,6 @@ def test_falls_over_to_backup_when_groq_fails(monkeypatch):
         return "answer from backup"
 
     monkeypatch.setattr(llm, "_call", fake_call)
-    monkeypatch.setattr(llm.time, "sleep", lambda *_: None)
     out = llm.chat("sys", "user")
     assert out == "answer from backup"
     assert "groq" in seen and "openrouter" in seen  # tried groq first, then backup
@@ -31,7 +30,6 @@ def test_raises_only_when_all_providers_fail(monkeypatch):
     _both_keys(monkeypatch)
     monkeypatch.setattr(llm, "_call",
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
-    monkeypatch.setattr(llm.time, "sleep", lambda *_: None)
     with pytest.raises(RuntimeError):
         llm.chat("s", "u")
 
