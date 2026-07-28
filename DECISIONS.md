@@ -256,14 +256,14 @@ The pipeline qualified 66 records; the deliverable is 50. Rather than hand-pick 
 
 I directed that each part of the RAG be **tested as it was built**, not "written and hoped", specifically to catch errors early instead of discovering them in the live demo. The assessment scores validation and warns that every capability claim must reconcile with the artifacts — a test that actually runs green is that reconciliation, not a claim. So each component was built test-first: write the check, watch it fail, implement, watch it pass, commit.
 
-**The 15 automated tests and what each guards against:**
+**The 19 automated tests (+4 live "trap" tests, run on demand) and what each guards against** — `pytest -q` → 19 passed, 4 deselected:
 - **Ingest (2):** the record blurb includes the firm's real facts; the filter metadata flags has-email/has-phone correctly — guards against embedding empty or wrong text.
-- **Retrieve (2):** a relevant query returns hits; an off-topic query is *gated* (declined) — guards against answering from nothing.
+- **Retrieve (5):** a relevant query returns hits; an off-topic query is *gated* (declined); a type query surfaces both the confirmed firms *and* the Unconfirmed ones while leaking no wrong-type firm; "multifamily" (one word) filters the same as "multi family"; a firm named outright is injected even when semantic search misses it — guards against answering from nothing, and against the whole question-classes (named lookup, type list) that were silently failing.
 - **Answer / grounding (6):** the 2-LLM control approves a supported answer, refines an overstated one, and **declines** when the validator rejects it or the query is empty/no-match; an LLM outage returns the honest `error` state, not a fake decline — guards against the single most important failure, the system inventing facts.
 - **Failover (3):** when Groq fails the call reaches the OpenRouter backup; only if *both* fail does it raise; no keys configured raises clearly — guards against a provider outage taking the whole system down.
-- **API (2):** health responds; the answer endpoint returns the verdict — guards the deployable surface.
+- **API (3):** health responds; the answer endpoint returns the verdict; the root serves the UI — guards the deployable surface.
 
-This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
+The suite grew from 15 to 19 as I fixed the retrieval bugs this session (named-firm injection, the two-section type answer, the "multifamily" filter gap) — each fix landed with a regression test so the bug can't silently return. This testing discipline is also where I caught real bugs before they reached the file: the RAG build surfaced that Pathstone (a multi-family office) was mislabeled SFO, and the tests forced the honest handling of empty/error states. Catching those in a test beat catching them in front of the evaluator.
 
 ## 2026-07-28 — Fitting whole-corpus answers inside the serverless deadline (my decision)
 
