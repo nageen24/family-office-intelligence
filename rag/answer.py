@@ -52,22 +52,32 @@ ANSWERER_SYS = (
     "markdown tables, pipe characters, or ** bold ** symbols. Do not expose "
     "internal field names or jargon.")
 
-# Appended for firm-type questions. The user's decision (DECISIONS.md 2026-07-28):
-# answer in two parts — the firms confirmed as the asked type first, then the
-# verified firms whose single-vs-multi label isn't yet proven, clearly separated
-# so the reader never mistakes "unconfirmed type" for "unverified firm".
-TYPE_LIST_GUIDE = (
-    "\n\nThis is a firm-TYPE question ({kind}). Structure the answer in two parts, "
-    "reading each record's stated type:\n"
-    "1. First, list ONLY the firms whose type is confirmed as {code} — the exact "
-    "type asked for.\n"
-    "2. Then a separator line: state that the firms above are 100% confirmed {kind}, "
-    "and that the dataset also holds the verified firms below whose type (single vs "
-    "multi family) is simply not yet confirmed — the records themselves are correct "
-    "and verified, only the single/multi label is missing. Then list those firms "
-    "(the ones with type Unconfirmed).\n"
-    "Never drop the second list, and never present an Unconfirmed firm as if its "
-    "type were proven.")
+def _format_type_answer(kind: str, confirmed: list, unconfirmed: list) -> str:
+    """The user's two-section firm-type answer (DECISIONS.md 2026-07-28), built
+    deterministically from the records: the firms confirmed as the asked type
+    first, then the verified firms whose single-vs-multi label isn't proven yet —
+    clearly separated so the reader never mistakes "unconfirmed type" for
+    "unverified firm". No LLM: it can't hallucinate and it can't time out.
+    """
+    singular = kind[:-1]  # "multi-family offices" -> "multi-family office"
+    lines = []
+    if confirmed:
+        lines.append(f"Firms confirmed as {kind}:")
+        lines += [f"{i}. {n}" for i, n in enumerate(confirmed, 1)]
+        lead = f"The {len(confirmed)} firm(s) above are 100% confirmed {kind}. "
+    else:
+        lines.append(f"No firm in the dataset is yet confirmed as a {singular}.")
+        lead = ""
+    if unconfirmed:
+        lines.append("")
+        lines.append("—")
+        lines.append(
+            f"{lead}The dataset also holds these verified firms whose type "
+            f"(single vs multi family) is simply not confirmed yet — the records "
+            f"are correct and verified, only the single/multi label is missing:")
+        lines += [f"{i}. {n}" for i, n in enumerate(unconfirmed, 1)]
+    return "\n".join(lines)
+
 
 VALIDATOR_SYS = (
     "You audit a draft answer against the source records it was based on. The "
@@ -150,18 +160,26 @@ def answer(query: str) -> dict:
         return {"text": DECLINE_MSG, "status": "declined", "verdict": "declined", "sources": []}
 
     whole_corpus = enumerate_all or aggregate or type_query
-    ctx = _compact_context(r["hits"]) if whole_corpus else _context(r["hits"])
     sources = [h.get("firm_name") for h in r["hits"]]
+
+    # A pure firm-type question is a deterministic structured operation: the two
+    # sections are exactly "records of the asked type" and "records typed
+    # Unconfirmed". Formatting them directly (no LLM) is instant, can't
+    # hallucinate, and dodges the serverless timeout that regenerating a 45-firm
+    # list through a free-tier LLM caused. (If AUM/ranking is also asked, fall
+    # through to the LLM path so the ranking is actually computed.)
+    if type_query and not aggregate:
+        code = "MFO" if multi_q else "SFO"
+        kind = "multi-family offices" if multi_q else "single-family offices"
+        confirmed = [h.get("firm_name") for h in r["hits"] if h.get("firm_type") == code]
+        unconfirmed = [h.get("firm_name") for h in r["hits"]
+                       if h.get("firm_type") == "Unconfirmed"]
+        return {"text": _format_type_answer(kind, confirmed, unconfirmed),
+                "status": "answered", "verdict": "approved", "sources": sources}
+
+    ctx = _compact_context(r["hits"]) if whole_corpus else _context(r["hits"])
     answerer_sys = ANSWERER_SYS.format(total=corpus_size() or "the")
     validator_sys = VALIDATOR_SYS.format(total=corpus_size() or "the")
-    if type_query:
-        guide = TYPE_LIST_GUIDE.format(
-            kind="multi-family offices" if multi_q else "single-family offices",
-            code="MFO" if multi_q else "SFO")
-        # Both LLMs get the guide so the validator treats the two-section answer
-        # (confirmed + clearly-labelled unconfirmed) as correct, not an overreach.
-        answerer_sys += guide
-        validator_sys += guide
 
     try:
         draft = _chat(answerer_sys, f"Records:\n{ctx}\n\nQuestion: {query}")
