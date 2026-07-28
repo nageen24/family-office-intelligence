@@ -38,17 +38,21 @@ def _tag(xml: str, tag: str) -> Optional[str]:
 
 
 def _fmt_value_thousands(raw: str, entries: Optional[str] = None) -> Optional[str]:
-    """tableValueTotal: thousands in pre-2023 filings, full dollars post-2023 —
-    and filers are inconsistent about which they use.
+    """tableValueTotal: thousands in older filings, full dollars in newer ones —
+    and filers are inconsistent about which they use, even in the same year.
 
-    Robust disambiguation via the holdings count (tableEntryTotal): the average
-    position = total / holdings. If reading the total as *thousands* implies an
-    average position above $1B, that's implausible (individual 13F holdings are
-    almost never that large on average), so the total is really in *dollars*.
-    This correctly split Duquesne (70 holdings, thousands, $3.38B, ~$48M/pos)
-    from Standard (31 holdings — thousands would be $3.1B/pos, absurd — so
-    dollars, $96.78M). Falls back to a $100M threshold when holdings unknown.
-    Zero/garbage -> None (an honest blank beats a fake $0).
+    Disambiguation uses two signals, and reads as dollars if EITHER fires:
+      (a) raw >= $100M — a firm only files 13F if it holds >=$100M, so a raw
+          already at/above 100,000,000 is dollars (as thousands it'd be >=$100B).
+      (b) raw*1000 / holdings > $100M average position — an average single 13F
+          holding above $100M is implausible, so the total must already be dollars.
+    Otherwise it's thousands and we multiply by 1,000.
+
+    This keeps Duquesne (raw 3,380,000, 70 holdings -> thousands -> $3.38B; avg
+    $48M) correct, while fixing dollar-reporting filers the old heuristic inflated
+    1000x: CVA (949,646,263 -> $949.6M), Fortitude ($516.0M), Standard (96,780,000,
+    31 holdings; avg-if-thousands $3.1B -> dollars -> $96.78M). Zero/garbage ->
+    None (an honest blank beats a fake $0).
     """
     try:
         n = int(raw.replace(",", "").split(".")[0])
@@ -61,11 +65,8 @@ def _fmt_value_thousands(raw: str, entries: Optional[str] = None) -> Optional[st
     except (ValueError, TypeError):
         e = 0
 
-    if e > 0:
-        avg_if_thousands = (n * 1000) / e
-        v = n if avg_if_thousands > 1_000_000_000 else n * 1000
-    else:
-        v = n if n >= 100_000_000 else n * 1000
+    is_dollars = n >= 100_000_000 or (e > 0 and (n * 1000) / e > 100_000_000)
+    v = n if is_dollars else n * 1000
 
     if v >= 1_000_000_000:
         return f"${v / 1_000_000_000:.2f}B (13F portfolio value)"
@@ -102,9 +103,17 @@ def enrich_from_13f(firm: CandidateFirm) -> CandidateFirm:
     src = f"SEC 13F-HR {fdate} (CIK {firm.cik})"
 
     # --- decision-maker signature block (official) ---
-    name = _tag(xml, "name")
-    title = _tag(xml, "title")
-    phone = _tag(xml, "phone")
+    # Scope to <signatureBlock> FIRST: a bare <name> search grabs the first name
+    # in the doc, which is often an otherManager (AQR, FMR) from the cover page —
+    # not the human signer. Reading name/title/phone from inside the signature
+    # block is what recovers the real decision-maker (e.g. Biltmore -> Christopher
+    # H. A. Cecil, Callan -> John Ginter) the earlier pass missed.
+    sig = re.search(r"<(?:\w+:)?signatureBlock>(.*?)</(?:\w+:)?signatureBlock>",
+                    xml, re.S | re.I)
+    sig_xml = sig.group(1) if sig else xml
+    name = _tag(sig_xml, "name")
+    title = _tag(sig_xml, "title")
+    phone = _tag(sig_xml, "phone")
     # The signer is sometimes the firm itself; only take a human-looking name.
     if name and firm.principal_name.is_blank():
         looks_human = (2 <= len(name.split()) <= 4
@@ -145,6 +154,9 @@ def enrich_from_13f(firm: CandidateFirm) -> CandidateFirm:
     # --- Rule-2 evidence: an institutional filer with FO name is a real FO ---
     if "family office" in firm.firm_name.lower():
         note = f"files SEC 13F-HR as '{firm.firm_name}' ({src})"
-        firm.type_evidence = (firm.type_evidence + "; " + note) if firm.type_evidence else note
+        if not firm.type_evidence:
+            firm.type_evidence = note
+        elif note not in firm.type_evidence:  # idempotent: no dup note on re-run
+            firm.type_evidence = firm.type_evidence + "; " + note
 
     return firm
