@@ -23,11 +23,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # (name, endpoint, api-key env var, model id)
+# Primary + backup are BOTH Groq (same fast llama-3.3-70b) but on two independent
+# accounts/keys, so one account's rate-limit doesn't take answering down — this
+# replaced OpenRouter as backup after its free daily quota kept 429-ing. OpenRouter
+# is kept as a last-ditch third only if its key is set; it's skipped entirely when
+# the two Groq keys answer.
+GROQ = "https://api.groq.com/openai/v1/chat/completions"
 PROVIDERS = [
-    ("groq", "https://api.groq.com/openai/v1/chat/completions",
-     "GROQ_API_KEY", "llama-3.3-70b-versatile"),
-    # Backup: OpenRouter (globally available, free models, OpenAI-compatible).
-    # NVIDIA NIM was geo-restricted at signup, so OpenRouter is the backup.
+    ("groq", GROQ, "GROQ_API_KEY", "llama-3.3-70b-versatile"),
+    ("groq-2", GROQ, "GROQ_API_KEY_2", "llama-3.3-70b-versatile"),
     ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
      "OPENROUTER_API_KEY", "openai/gpt-oss-20b:free"),
 ]
