@@ -1,0 +1,116 @@
+"""S10 — enrichment-beyond-seed: capture a code-verified FO-function proof.
+
+Discovery (S9) proves a firm EXISTS. This step goes BEYOND the discovery source
+to the firm's OWN website and captures Proof B (function) + Proof C (type):
+
+  1. Fetch the firm's own site (homepage + an about page). Direct fetches work
+     from this environment; only search engines are IP-blocked.
+  2. An LLM reads the page and returns the VERBATIM sentence proving FO-function
+     and, if present, the sentence proving single- vs multi-family.
+  3. CODE verifies each quote literally exists on the page (ontology.quote_present).
+     A hallucinated/paraphrased quote is dropped — the control is mechanical, not
+     a matter of trusting the model.
+
+Only quotes that survive step 3 become proof. Registration/name/press never do.
+"""
+from __future__ import annotations
+
+import json
+import re
+from typing import Callable, Optional
+
+import requests
+
+from pipeline.ontology import quote_present
+from pipeline.schema import CandidateFirm
+from pipeline.discovery.base import USER_AGENT
+
+LlmFn = Callable[[str], str]
+FetchFn = Callable[[str], str]
+
+SYSTEM = (
+    "You read one company's OWN website text and decide, strictly from that text, "
+    "whether the company states it operates as a family office. You never guess "
+    "from the name. Return ONLY JSON with these keys:\n"
+    '  is_family_office (bool), function_quote (a VERBATIM sentence copied exactly '
+    'from the text that states it operates as a family office, else ""), '
+    'type ("single"|"multi"|"unknown"), type_quote (a VERBATIM sentence proving '
+    'single- vs multi-family, else ""), sec_family_office_exemption (bool: does '
+    "the text claim an SEC family-office exemption / Rule 202(a)(11)(G)-1).\n"
+    "Every quote MUST be copied character-for-character from the text. If nothing "
+    "in the text states family-office function, set is_family_office false and "
+    "leave quotes empty."
+)
+
+
+def _parse_json(raw: str) -> dict:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", raw).strip()
+    m = re.search(r"\{.*\}", raw, re.S)
+    if not m:
+        return {}
+    try:
+        return json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return {}
+
+
+def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
+    """Return only quotes the model produced AND code verified against the page."""
+    data = _parse_json(llm(page_text))
+    fq = (data.get("function_quote") or "").strip()
+    tq = (data.get("type_quote") or "").strip()
+
+    # The mechanical control: a quote counts only if it is literally on the page.
+    if not (data.get("is_family_office") and fq and quote_present(page_text, fq)):
+        fq = None
+    if not (tq and quote_present(page_text, tq)):
+        tq = None
+
+    return {
+        "function_quote": fq,
+        "type_quote": tq if fq else None,      # type is meaningless without function
+        "sec_family_office_exemption": bool(data.get("sec_family_office_exemption")) if fq else False,
+    }
+
+
+def fetch_site_text(url: str, max_chars: int = 9000) -> str:
+    """Homepage + one about-style page, stripped to visible text."""
+    from urllib.parse import urljoin
+    texts = []
+    for suffix in ("", "about", "about-us", "who-we-are", "firm"):
+        try:
+            r = requests.get(urljoin(url + "/", suffix), timeout=20,
+                             headers={"User-Agent": USER_AGENT})
+            if r.status_code == 200 and "text/html" in r.headers.get("content-type", ""):
+                texts.append(_visible_text(r.text))
+        except requests.RequestException:
+            continue
+        if sum(len(t) for t in texts) >= max_chars:
+            break
+    return " ".join(texts)[:max_chars]
+
+
+def _visible_text(html: str) -> str:
+    html = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
+    text = re.sub(r"(?s)<[^>]+>", " ", html)
+    text = re.sub(r"&[a-zA-Z#0-9]+;", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def enrich_function(firm: CandidateFirm, llm: LlmFn,
+                    fetch: FetchFn = fetch_site_text) -> CandidateFirm:
+    """Fetch the firm's own site and set the Proof B/C fields from verified quotes."""
+    if not firm.website:
+        return firm                      # no own site -> cannot prove function here
+    page = fetch(firm.website)
+    if not page:
+        return firm
+    proof = extract_function_proof(page, llm)
+    if proof["function_quote"]:
+        firm.proof_function_source = firm.website
+        firm.proof_function_quote = proof["function_quote"]
+        firm.proof_type_quote = proof["type_quote"]
+        firm.sec_family_office_exemption = proof["sec_family_office_exemption"]
+    return firm
