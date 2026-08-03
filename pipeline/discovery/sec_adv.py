@@ -65,6 +65,26 @@ def select_rows(rows: List[dict], concentrated: bool = True) -> List[dict]:
     return out
 
 
+import re as _re
+_FO_NAME = _re.compile(
+    r"family office|multi.?family|family wealth|family capital|family partners|"
+    r"family enterprise|family group|family investment", _re.I)
+
+
+def priority_score(row: dict) -> int:
+    """Rank candidates by family-office likelihood so the scheduled climb verifies
+    the highest-yield firms first (a random slice is ~0% FO; FO-named ~47%)."""
+    name = f"{row.get('Primary Business Name','')} {row.get('Legal Name','')}"
+    score = 0
+    if _FO_NAME.search(name):
+        score += 100                       # explicit FO/multi-family name signal
+    elif "family" in name.lower():
+        score += 40                        # weaker family signal
+    # more HNW individual clients = more likely a real family shop
+    score += min(int(_num(row, "5D(b)(1)")), 30)
+    return score
+
+
 def candidate_from_row(row: dict) -> CandidateFirm:
     """Map an ADV roster row to a CandidateFirm. Existence + reachability only —
     NOT function (that is S10's job)."""
@@ -148,4 +168,5 @@ class SECFormADV(DiscoverySource):
             print(f"[{self.name}] roster load error: {e}")
             return []
         picked = select_rows(rows)
+        picked.sort(key=priority_score, reverse=True)   # FO-signal candidates first
         return [candidate_from_row(r) for r in picked[:limit]]

@@ -8,7 +8,7 @@ clients) with a real own website — the functional MFO/FO proxy. Registration i
 NOT function proof; category stays Unresolved-Quarantine until S10 verifies the
 firm's own site.
 """
-from pipeline.discovery.sec_adv import select_rows, candidate_from_row
+from pipeline.discovery.sec_adv import select_rows, candidate_from_row, priority_score
 from pipeline.schema import CandidateFirm
 
 
@@ -45,6 +45,12 @@ def test_concentrated_default_drops_institutional_but_wide_keeps_it():
     inst = _row(**{"5D(f)(1)": "10"})   # also has pooled-vehicle (institutional) clients
     assert select_rows([inst]) == []                    # default concentrated=True
     assert len(select_rows([inst], concentrated=False)) == 1
+
+
+def test_fo_named_rows_outrank_generic_ones():
+    named = _row(**{"Primary Business Name": "CHERRY CREEK FAMILY OFFICES"})
+    generic = _row(**{"Primary Business Name": "AMERICAN INVESTORS CO", "Legal Name": "AMERICAN INVESTORS CO"})
+    assert priority_score(named) > priority_score(generic)
 
 
 def test_candidate_mapping():
