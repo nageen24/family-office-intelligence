@@ -36,13 +36,55 @@ TODAY = date.today().isoformat()
 EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@([a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$")
 
 
-def verify_email(cell: Cell) -> Cell:
-    """MX check (free) + optional Hunter free tier, mapped to the S2 status vocab.
+def _dns_mx(domain: str) -> bool:
+    try:
+        return len(dns.resolver.resolve(domain, "MX")) > 0
+    except Exception:
+        return False
 
-    verified = the mailbox itself was confirmed (Hunter 'deliverable' on a
-    non-catch-all domain). MX-only or a catch-all domain = inferred. A failed
-    check (bad syntax, no MX, Hunter undeliverable) is QUARANTINED — withheld
-    from the customer surface, original kept in the cell's audit fields.
+
+def smtp_probe(email: str, timeout: int = 8) -> str:
+    """Free mailbox check via SMTP RCPT, with catch-all detection.
+
+    Returns one of: 'deliverable' (RCPT for the address accepted AND a random
+    address on the same domain is rejected), 'catch_all' (both accepted — the
+    server accepts everything, so nothing is proven), 'undeliverable' (address
+    rejected), 'unknown' (port 25 blocked / timeout / greylisted — common for
+    Microsoft-365 domains; we do NOT claim verified on an inconclusive probe).
+    """
+    import smtplib
+    import uuid
+    domain = email.split("@", 1)[1]
+    try:
+        mx = sorted((r.preference, str(r.exchange).rstrip("."))
+                    for r in dns.resolver.resolve(domain, "MX"))[0][1]
+    except Exception:
+        return "unknown"
+    try:
+        s = smtplib.SMTP(timeout=timeout)
+        s.connect(mx, 25)
+        s.helo("example.com")
+        s.mail("verify@example.com")
+        code, _ = s.rcpt(email)
+        rnd, _ = s.rcpt(f"{uuid.uuid4().hex}@{domain}")
+        s.quit()
+    except Exception:
+        return "unknown"
+    if code in (250, 251):
+        return "catch_all" if rnd in (250, 251) else "deliverable"
+    if code in (550, 551, 553, 554):
+        return "undeliverable"
+    return "unknown"
+
+
+def verify_email(cell: Cell, mx_lookup=_dns_mx, probe=smtp_probe) -> Cell:
+    """MX + free SMTP mailbox check, mapped to the S2 status vocab.
+
+    verified = the mailbox itself was confirmed (SMTP RCPT deliverable on a
+    non-catch-all domain). MX-only, catch-all, or an inconclusive/blocked probe =
+    inferred. A failed check (bad syntax, no MX, undeliverable) is QUARANTINED —
+    withheld from the customer surface, original kept in the cell's audit fields.
+    Both the MX lookup and the SMTP probe are injectable for testing.
     """
     if cell.status is Status.QUARANTINED:
         return cell            # already withheld (e.g. cross-entity) — don't revive
@@ -52,47 +94,26 @@ def verify_email(cell: Cell) -> Cell:
     if not m:
         return cell.quarantine("invalid email syntax")
     domain = m.group(1)
-    try:
-        answers = dns.resolver.resolve(domain, "MX")
-        has_mx = len(answers) > 0
-    except Exception:
-        has_mx = False
-    if not has_mx:
+    if not mx_lookup(domain):
         return cell.quarantine(f"no MX record for {domain} (undeliverable)")
 
-    # Optional stronger check if a Hunter key is present.
-    mailbox_confirmed = False
-    catch_all = False
-    hunter_key = os.getenv("HUNTER_API_KEY")
-    if hunter_key:
-        try:
-            import requests
-            r = requests.get("https://api.hunter.io/v2/email-verifier",
-                             params={"email": cell.value, "api_key": hunter_key},
-                             timeout=20)
-            data = r.json().get("data", {})
-            hstatus = data.get("status")
-            if hstatus in ("undeliverable", "invalid"):
-                return cell.quarantine(f"Hunter: {hstatus}")
-            mailbox_confirmed = hstatus == "deliverable"
-            catch_all = bool(data.get("accept_all")) or hstatus == "accept_all"
-            cell.method = f"MX ok + Hunter:{hstatus}"
-        except Exception:
-            pass
+    result = probe(cell.value.strip())
+    if result == "undeliverable":
+        return cell.quarantine("SMTP RCPT rejected the mailbox (undeliverable)")
 
     st = email_status(has_syntax=True, has_mx=True,
-                      mailbox_confirmed=mailbox_confirmed, catch_all=catch_all)
+                      mailbox_confirmed=(result == "deliverable"),
+                      catch_all=(result == "catch_all"))
     cell.status = st
     if st == Status.VERIFIED:
         cell.confidence = Confidence.HIGH
         cell.epistemic = Epistemic.FACT
-        if "Hunter" not in (cell.method or ""):
-            cell.method = "mailbox confirmed deliverable"
-    else:  # INFERRED: MX proves the domain accepts mail, not the mailbox
+        cell.method = "SMTP RCPT: mailbox confirmed deliverable"
+    else:  # INFERRED
         cell.confidence = Confidence.MEDIUM
         cell.epistemic = Epistemic.INFERENCE
-        if "Hunter" not in (cell.method or ""):
-            cell.method = "MX record present (domain accepts mail; mailbox unconfirmed)"
+        cell.method = ("MX present; mailbox unconfirmed "
+                       f"(SMTP probe: {result})")
     cell.asof_date = TODAY
     return cell
 
