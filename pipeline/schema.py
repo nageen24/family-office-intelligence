@@ -108,6 +108,8 @@ class CandidateFirm:
     proof_function_source: Optional[str] = None   # Proof B: URL/filing the quote is from
     proof_function_quote: Optional[str] = None    # Proof B: exact own-source FO-function sentence
     proof_type_quote: Optional[str] = None        # Proof C: exact sentence proving SFO/MFO
+    sec_family_office_exemption: Optional[bool] = None  # Proof B: claimed SEC family-office exemption (single-family)
+    ria_adviser_evidence: Optional[str] = None    # affirmative general-adviser evidence -> RIA-nonqualifying
     entity_coherent: Optional[bool] = None        # S6 whole-record resolution result
     counts_toward_500: Optional[bool] = None      # S3 inclusion-floor result
     is_commercial: Optional[bool] = None          # S3 commercial-standard result
