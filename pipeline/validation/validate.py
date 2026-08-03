@@ -26,6 +26,7 @@ import dns.resolver
 
 from pipeline.schema import (CandidateFirm, Cell, FirmType, Confidence, Epistemic)
 from pipeline.ontology import Status, email_status
+from pipeline.validation.entity import resolve_entity
 
 TODAY = date.today().isoformat()
 
@@ -194,6 +195,8 @@ def verify_email(cell: Cell) -> Cell:
     check (bad syntax, no MX, Hunter undeliverable) is QUARANTINED — withheld
     from the customer surface, original kept in the cell's audit fields.
     """
+    if cell.status is Status.QUARANTINED:
+        return cell            # already withheld (e.g. cross-entity) — don't revive
     if cell.is_blank():
         return cell.mark_unresolved()
     m = EMAIL_RE.match(cell.value.strip())
@@ -269,6 +272,10 @@ def validate_all(pool: List[CandidateFirm], min_score: int = 20) -> List[Candida
         ftype, evidence = classify_firm(firm)
         firm.firm_type = ftype
         firm.type_evidence = evidence
+
+        # S6: resolve the whole record to ONE entity — quarantine cross-entity
+        # values (snow-crab signals, foreign-domain emails) and set entity_coherent.
+        resolve_entity(firm)
 
         # Rule 1: verify high-value cells; findings govern release.
         firm.principal_email = verify_email(firm.principal_email)
