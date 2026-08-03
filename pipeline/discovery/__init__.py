@@ -8,3 +8,4 @@ from pipeline.discovery import news              # noqa: F401
 from pipeline.discovery import opencorporates    # noqa: F401
 from pipeline.discovery import cik_registry      # noqa: F401
 from pipeline.discovery import wikidata_fo        # noqa: F401
+from pipeline.discovery import sec_adv            # noqa: F401  (Phase-2 backbone)
