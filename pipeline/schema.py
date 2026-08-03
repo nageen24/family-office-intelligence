@@ -55,9 +55,34 @@ class Cell:
     # contact cells, whose route it is. Same label on every surface; never upgraded.
     status: Optional[Status] = None       # verified / inferred / unresolved / quarantined
     route: Optional[RouteType] = None     # personal vs firm-level (contact cells only)
+    # audit-only (S5): NEVER shipped to a customer surface. When a value fails a
+    # check it is withheld (value -> None) but preserved here so we can prove
+    # exactly what was caught and why.
+    quarantined_value: Optional[str] = None
+    quarantined_reason: Optional[str] = None
 
     def is_blank(self) -> bool:
         return self.value in (None, "", "N/A")
+
+    def quarantine(self, reason: str) -> "Cell":
+        """Withhold a value that FAILED a check (S5): remove it from every
+        customer surface, keep the original in audit-only fields, stamp
+        status=quarantined. Validation withholds, it does not merely tag."""
+        if self.value is not None:
+            self.quarantined_value = self.value
+        self.quarantined_reason = reason
+        self.method = f"quarantined — {reason}"
+        self.value = None
+        self.status = Status.QUARANTINED
+        self.confidence = None
+        self.epistemic = None
+        return self
+
+    def mark_unresolved(self) -> "Cell":
+        """An honest blank: a value that was never found (not a failed check)."""
+        self.value = None
+        self.status = Status.UNRESOLVED
+        return self
 
 
 @dataclass
@@ -117,8 +142,13 @@ class CandidateFirm:
     # --- audit ---
     rejection_reason: Optional[str] = None     # set when disqualified
 
-    def to_flat_row(self) -> dict:
-        """Flatten to a single CSV row with one column per cell + provenance."""
+    def to_flat_row(self, audit: bool = False) -> dict:
+        """Flatten to a single CSV row with one column per cell + provenance.
+
+        Default is the CUSTOMER surface: quarantined values appear blank and the
+        audit-only columns are omitted. Pass audit=True for an internal export
+        that also carries the withheld value + reason.
+        """
         row: dict = {
             "firm_name": self.firm_name,
             "discovery_source": self.discovery_source,
@@ -156,4 +186,7 @@ class CandidateFirm:
             row[f"{name}__asof"] = c.asof_date
             row[f"{name}__status"] = c.status.value if isinstance(c.status, Status) else c.status
             row[f"{name}__route"] = c.route.value if isinstance(c.route, RouteType) else c.route
+            if audit:
+                row[f"{name}__quarantined_value"] = c.quarantined_value
+                row[f"{name}__quarantined_reason"] = c.quarantined_reason
         return row

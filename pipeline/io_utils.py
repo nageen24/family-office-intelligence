@@ -32,6 +32,8 @@ def _cell_from_dict(d: dict) -> Cell:
         asof_date=d.get("asof_date"),
         status=Status(d["status"]) if d.get("status") else None,
         route=RouteType(d["route"]) if d.get("route") else None,
+        quarantined_value=d.get("quarantined_value"),
+        quarantined_reason=d.get("quarantined_reason"),
     )
 
 
@@ -124,12 +126,14 @@ def write_dataset(pool: List[CandidateFirm]) -> dict:
     ext_csv = os.path.join(FINAL, "extended_qualified.csv")
     rej_csv = os.path.join(FINAL, "rejection_log.csv")
 
+    # Delivered + extended are CUSTOMER surfaces: quarantined values stay hidden.
     df_q = pd.DataFrame([c.to_flat_row() for c in delivered])
     df_q.to_csv(ds_csv, index=False)
     if not df_q.empty:
         df_q.to_excel(ds_xlsx, index=False)
     pd.DataFrame([c.to_flat_row() for c in extra]).to_csv(ext_csv, index=False)
-    pd.DataFrame([c.to_flat_row() for c in rejected]).to_csv(rej_csv, index=False)
+    # The rejection log is an internal AUDIT surface: show what was withheld.
+    pd.DataFrame([c.to_flat_row(audit=True) for c in rejected]).to_csv(rej_csv, index=False)
 
     return {
         "delivered": len(delivered),

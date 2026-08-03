@@ -25,6 +25,7 @@ from typing import List, Tuple
 import dns.resolver
 
 from pipeline.schema import (CandidateFirm, Cell, FirmType, Confidence, Epistemic)
+from pipeline.ontology import Status, email_status
 
 TODAY = date.today().isoformat()
 
@@ -186,12 +187,18 @@ EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@([a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})$")
 
 
 def verify_email(cell: Cell) -> Cell:
-    """MX check (free) + optional Hunter free tier. Findings govern release."""
+    """MX check (free) + optional Hunter free tier, mapped to the S2 status vocab.
+
+    verified = the mailbox itself was confirmed (Hunter 'deliverable' on a
+    non-catch-all domain). MX-only or a catch-all domain = inferred. A failed
+    check (bad syntax, no MX, Hunter undeliverable) is QUARANTINED — withheld
+    from the customer surface, original kept in the cell's audit fields.
+    """
     if cell.is_blank():
-        return cell
+        return cell.mark_unresolved()
     m = EMAIL_RE.match(cell.value.strip())
     if not m:
-        return _blank(cell, "invalid email syntax")
+        return cell.quarantine("invalid email syntax")
     domain = m.group(1)
     try:
         answers = dns.resolver.resolve(domain, "MX")
@@ -199,10 +206,11 @@ def verify_email(cell: Cell) -> Cell:
     except Exception:
         has_mx = False
     if not has_mx:
-        # No mail server for the domain -> undeliverable -> remove from field.
-        return _blank(cell, f"no MX record for {domain} (undeliverable)")
+        return cell.quarantine(f"no MX record for {domain} (undeliverable)")
 
     # Optional stronger check if a Hunter key is present.
+    mailbox_confirmed = False
+    catch_all = False
     hunter_key = os.getenv("HUNTER_API_KEY")
     if hunter_key:
         try:
@@ -210,29 +218,31 @@ def verify_email(cell: Cell) -> Cell:
             r = requests.get("https://api.hunter.io/v2/email-verifier",
                              params={"email": cell.value, "api_key": hunter_key},
                              timeout=20)
-            status = r.json().get("data", {}).get("status")
-            if status in ("undeliverable", "invalid"):
-                return _blank(cell, f"Hunter: {status}")
-            cell.method = f"MX ok + Hunter:{status}"
-            cell.confidence = Confidence.HIGH if status == "deliverable" else Confidence.MEDIUM
-            cell.epistemic = Epistemic.FACT
-            cell.asof_date = TODAY
-            return cell
+            data = r.json().get("data", {})
+            hstatus = data.get("status")
+            if hstatus in ("undeliverable", "invalid"):
+                return cell.quarantine(f"Hunter: {hstatus}")
+            mailbox_confirmed = hstatus == "deliverable"
+            catch_all = bool(data.get("accept_all")) or hstatus == "accept_all"
+            cell.method = f"MX ok + Hunter:{hstatus}"
         except Exception:
             pass
 
-    cell.method = "MX record present (domain accepts mail)"
-    cell.confidence = Confidence.MEDIUM  # MX alone can't confirm the mailbox
-    cell.epistemic = Epistemic.INFERENCE
+    st = email_status(has_syntax=True, has_mx=True,
+                      mailbox_confirmed=mailbox_confirmed, catch_all=catch_all)
+    cell.status = st
+    if st == Status.VERIFIED:
+        cell.confidence = Confidence.HIGH
+        cell.epistemic = Epistemic.FACT
+        if "Hunter" not in (cell.method or ""):
+            cell.method = "mailbox confirmed deliverable"
+    else:  # INFERRED: MX proves the domain accepts mail, not the mailbox
+        cell.confidence = Confidence.MEDIUM
+        cell.epistemic = Epistemic.INFERENCE
+        if "Hunter" not in (cell.method or ""):
+            cell.method = "MX record present (domain accepts mail; mailbox unconfirmed)"
     cell.asof_date = TODAY
     return cell
-
-
-def _blank(cell: Cell, reason: str) -> Cell:
-    """Turn a failed cell into an honest blank, preserving the reason as method."""
-    return Cell(value=None, source=cell.source,
-                method=f"could not verify — {reason}",
-                confidence=None, epistemic=None, asof_date=TODAY)
 
 
 # --- reachability score (dual-factor: contactability AND freshness) -------------
