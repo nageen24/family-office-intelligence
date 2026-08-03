@@ -18,6 +18,8 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Optional
 
+from pipeline.ontology import FirmCategory, Status, RouteType
+
 
 class FirmType(str, Enum):
     SFO = "SFO"                # single-family office
@@ -49,6 +51,10 @@ class Cell:
     confidence: Optional[Confidence] = None
     epistemic: Optional[Epistemic] = None
     asof_date: Optional[str] = None       # YYYY-MM-DD when confirmed / as-of
+    # Stage-2 ontology (S2): the one honest status word for THIS value, and, for
+    # contact cells, whose route it is. Same label on every surface; never upgraded.
+    status: Optional[Status] = None       # verified / inferred / unresolved / quarantined
+    route: Optional[RouteType] = None     # personal vs firm-level (contact cells only)
 
     def is_blank(self) -> bool:
         return self.value in (None, "", "N/A")
@@ -67,6 +73,20 @@ class CandidateFirm:
     discovery_source: str                 # which source class found it
     firm_type: FirmType = FirmType.UNCONFIRMED
     type_evidence: Optional[str] = None   # what proves it's an FO / its type
+
+    # --- S1 ontology (Stage 2): category + the three SEPARATE proofs ---
+    # `category` is the narrowest accurate label from pipeline/ontology.py.
+    # Each proof stores the exact own-source sentence (Proof B/C) plus where it
+    # came from, so code can re-verify the quote literally exists (quote_present).
+    category: Optional[FirmCategory] = None
+    proof_exists: Optional[str] = None            # Proof A basis (CIK/site/location/principal)
+    proof_function_source: Optional[str] = None   # Proof B: URL/filing the quote is from
+    proof_function_quote: Optional[str] = None    # Proof B: exact own-source FO-function sentence
+    proof_type_quote: Optional[str] = None        # Proof C: exact sentence proving SFO/MFO
+    entity_coherent: Optional[bool] = None        # S6 whole-record resolution result
+    counts_toward_500: Optional[bool] = None      # S3 inclusion-floor result
+    is_commercial: Optional[bool] = None          # S3 commercial-standard result
+
     website: Optional[str] = None
     hq_location: Optional[str] = None
     corporate_linkedin: Optional[str] = None
@@ -104,6 +124,14 @@ class CandidateFirm:
             "discovery_source": self.discovery_source,
             "firm_type": self.firm_type.value if isinstance(self.firm_type, FirmType) else self.firm_type,
             "type_evidence": self.type_evidence,
+            "category": self.category.value if isinstance(self.category, FirmCategory) else self.category,
+            "proof_exists": self.proof_exists,
+            "proof_function_source": self.proof_function_source,
+            "proof_function_quote": self.proof_function_quote,
+            "proof_type_quote": self.proof_type_quote,
+            "entity_coherent": self.entity_coherent,
+            "counts_toward_500": self.counts_toward_500,
+            "is_commercial": self.is_commercial,
             "website": self.website,
             "hq_location": self.hq_location,
             "corporate_linkedin": self.corporate_linkedin,
@@ -126,4 +154,6 @@ class CandidateFirm:
             row[f"{name}__confidence"] = c.confidence.value if isinstance(c.confidence, Confidence) else c.confidence
             row[f"{name}__epistemic"] = c.epistemic.value if isinstance(c.epistemic, Epistemic) else c.epistemic
             row[f"{name}__asof"] = c.asof_date
+            row[f"{name}__status"] = c.status.value if isinstance(c.status, Status) else c.status
+            row[f"{name}__route"] = c.route.value if isinstance(c.route, RouteType) else c.route
         return row

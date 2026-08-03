@@ -14,6 +14,7 @@ from typing import List
 import pandas as pd
 
 from pipeline.schema import CandidateFirm, Cell, FirmType, Confidence, Epistemic
+from pipeline.ontology import FirmCategory, Status, RouteType
 
 INTERIM = os.path.join("data", "interim")
 FINAL = os.path.join("data", "final")
@@ -29,6 +30,8 @@ def _cell_from_dict(d: dict) -> Cell:
         confidence=Confidence(d["confidence"]) if d.get("confidence") else None,
         epistemic=Epistemic(d["epistemic"]) if d.get("epistemic") else None,
         asof_date=d.get("asof_date"),
+        status=Status(d["status"]) if d.get("status") else None,
+        route=RouteType(d["route"]) if d.get("route") else None,
     )
 
 
@@ -59,7 +62,12 @@ def load_pool(name: str) -> List[CandidateFirm]:
         })
         # assign remaining scalar attributes
         for k, v in kwargs.items():
-            setattr(firm, k, FirmType(v) if k == "firm_type" else v)
+            if k == "firm_type":
+                setattr(firm, k, FirmType(v))
+            elif k == "category":
+                setattr(firm, k, FirmCategory(v) if v else None)
+            else:
+                setattr(firm, k, v)
         for cn in cell_names:
             setattr(firm, cn, _cell_from_dict(r.get(cn) or {}))
         pool.append(firm)
