@@ -105,6 +105,72 @@ def run_agent(goal: str, records: List[dict], planner: Planner, reviewer: Review
     return st
 
 
+import re as _re
+
+_TOOLS_DESC = (
+    "search(category?, location?, focus?, is_commercial?, trust?, min_trust?, limit?) "
+    "- filter the full corpus, returns hits + scope; "
+    "count(...same filters...) - number matching; "
+    "get_record(name) - one firm by name.")
+
+_PLANNER_SYS = (
+    "You are a research worker with a fixed goal and a FIXED set of read-only tools:\n"
+    f"  {_TOOLS_DESC}\n"
+    "Each turn return ONLY JSON: either {\"tool\": <name>, \"args\": {...}} to gather "
+    "evidence, or {\"final\": {\"shortlist\": [{\"firm\":..,\"confidence\":\"high|"
+    "medium|low\",\"why\":..}], \"scope\": \"...\"}} when you have enough evidence, "
+    "or {\"refuse\": \"<why you cannot answer from the data>\"}. Use ONLY the tools "
+    "listed. Base every claim on tool results; never invent firms or fields.")
+
+_REVIEWER_SYS = (
+    "You are an INDEPENDENT release authority — NOT the worker. Given the goal, the "
+    "worker's draft, and the evidence it gathered, decide if the draft is fully "
+    "supported by the evidence and honest about confidence. Return ONLY one word: "
+    "approved (evidence supports every claim), refused (overclaims / thin evidence / "
+    "guesses), or escalated (genuinely ambiguous, needs a human). Weak evidence must "
+    "be refused, not approved.")
+
+
+def _json(raw: str) -> dict:
+    raw = (raw or "").strip()
+    if raw.startswith("```"):
+        raw = _re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", raw).strip()
+    m = _re.search(r"\{.*\}", raw, _re.S)
+    try:
+        return json.loads(m.group(0)) if m else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def llm_planner(chat: Callable[[str, str], str]) -> Planner:
+    def planner(goal: str, state: "AgentState") -> dict:
+        view = json.dumps({"goal": goal, "steps_so_far": state.steps[-6:],
+                           "findings_count": len(state.findings)})[:4000]
+        act = _json(chat(_PLANNER_SYS, view))
+        return act or {"refuse": "planner returned no valid action"}
+    return planner
+
+
+def llm_reviewer(chat: Callable[[str, str], str]) -> Reviewer:
+    def reviewer(goal: str, draft: dict, findings: list) -> str:
+        payload = json.dumps({"goal": goal, "draft": draft,
+                              "evidence_sample": findings[:20]})[:6000]
+        verdict = (chat(_REVIEWER_SYS, payload) or "").strip().lower()
+        for v in ("approved", "refused", "escalated"):
+            if v in verdict:
+                return v
+        return "refused"
+    return reviewer
+
+
+def answer_goal(goal: str, csv_path: Optional[str] = None, budget: int = 8) -> AgentState:
+    """Run the agent live: LLM worker + independent LLM release authority."""
+    from rag.llm import chat
+    from rag.structured import load_records
+    return run_agent(goal, load_records(csv_path),
+                     llm_planner(chat), llm_reviewer(chat), budget=budget)
+
+
 def save_agent(path: str, st: AgentState) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(asdict(st), f, indent=2)
