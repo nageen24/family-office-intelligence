@@ -26,11 +26,17 @@ class Ledger:
         self._lock = threading.Lock()
         self._c = {"processed": 0, "failed": 0, "llm_calls": 0,
                    "fetches": 0, "qualified": 0}
+        self.failures = []          # items whose enrichment threw (retriable)
         self._t0 = time.perf_counter()
 
     def bump(self, key: str, n: int = 1) -> None:
         with self._lock:
             self._c[key] = self._c.get(key, 0) + n
+
+    def fail(self, item) -> None:
+        with self._lock:
+            self._c["failed"] = self._c.get("failed", 0) + 1
+            self.failures.append(item)
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -85,7 +91,7 @@ def enrich_pool(pool: Iterable, enrich_one: Callable, workers: int = 8,
         try:
             enrich_one(item)
         except Exception:
-            led.bump("failed")
+            led.fail(item)          # record the item so the caller can retry it
         finally:
             led.bump("processed")
 

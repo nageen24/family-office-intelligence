@@ -79,7 +79,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
                candidates: Optional[List[CandidateFirm]] = None,
                chat: Optional[Callable] = None,
                fetch: Callable[[str], str] = fetch_site_text,
-               use_browser: bool = False, add_news: bool = True) -> dict:
+               use_browser: bool = False, add_news: bool = True,
+               recheck_size: int = 15) -> dict:
     if candidates is None:
         candidates = discover_candidates()
     if chat is None:
@@ -91,26 +92,60 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
 
     ledger = Ledger()
     rl = rate_limited(chat, min_interval=min_interval, ledger=ledger)
+    from datetime import date
+    today = date.today().isoformat()
+
     if todo:
         enrich_pool(todo, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
                                                     use_browser=use_browser,
                                                     add_news=add_news),
                     workers=workers, ledger=ledger)
-        validate_all(todo)
-        merge_pool(state, todo)
+        # Only merge firms that COMPLETED enrichment. A firm that threw (e.g. a
+        # Groq rate-limit) is left out of state so it is retried next run, not
+        # silently marked done with no data.
+        failed = {id(f) for f in ledger.failures}
+        done = [f for f in todo if id(f) not in failed]
+        validate_all(done)
+        for f in done:                       # stamp a freshly-proven source
+            if f.proof_function_quote and not f.last_verified:
+                f.last_verified, f.trust = today, "fresh"
+        merge_pool(state, done)
+
+    # S19 — cross-run staleness: re-check a few aging sources, adjust trust,
+    # re-validate (a contradicted source loses its proof and the record drops).
+    rechecked = _recheck_stale(state, fetch, today, limit=recheck_size, ledger=ledger)
+    if todo or rechecked:
         save_state(state_path, state)
 
     _write_dataset(state, out_dir)
-    return _summary(state, ledger, len(todo))
+    summary = _summary(state, ledger, len(todo))
+    summary["rechecked"] = rechecked
+    return summary
+
+
+def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None) -> int:
+    from pipeline.staleness import needs_recheck, apply_recheck
+    targets = [f for f in state.values() if needs_recheck(f, today)][:limit]
+    for f in targets:
+        fresh = fetch(f.website) if f.website else None
+        if ledger:
+            ledger.bump("fetches")
+        apply_recheck(f, fresh, today)
+    if targets:
+        validate_all(targets)                # contradicted -> proof gone -> drops
+    return len(targets)
 
 
 def main():
     import json
     batch = int(os.getenv("CLIMB_BATCH", "60"))
     use_browser = os.getenv("CLIMB_BROWSER", "").lower() in ("1", "true", "yes")
-    workers = 2 if use_browser else 6      # the browser is heavy — go gentler
+    # Groq free tier is ~30 req/min; 4 workers spaced 3s apart stays under it and
+    # cut the 429 failures. The browser is heavier still, so go gentler there.
+    workers = 2 if use_browser else 4
+    interval = float(os.getenv("CLIMB_INTERVAL", "3.0"))
     print(json.dumps(climb_once(batch_size=batch, use_browser=use_browser,
-                                workers=workers), indent=2))
+                                workers=workers, min_interval=interval), indent=2))
 
 
 if __name__ == "__main__":

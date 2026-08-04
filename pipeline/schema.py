@@ -113,6 +113,11 @@ class CandidateFirm:
     entity_coherent: Optional[bool] = None        # S6 whole-record resolution result
     counts_toward_500: Optional[bool] = None      # S3 inclusion-floor result
     is_commercial: Optional[bool] = None          # S3 commercial-standard result
+    # S19 staleness/trust (cross-run): last date the source was re-confirmed live,
+    # a trust label, and why trust changed.
+    last_verified: Optional[str] = None
+    trust: Optional[str] = None                   # fresh / stale / contradicted
+    staleness_reason: Optional[str] = None
 
     website: Optional[str] = None
     hq_location: Optional[str] = None
@@ -167,6 +172,8 @@ class CandidateFirm:
             # buyer-facing transparency: exactly what intelligence this record holds
             "has_investing_focus": not self.investing_thesis.is_blank(),
             "has_recent_signal": not self.recent_signal.is_blank(),
+            "trust": self.trust,
+            "last_verified": self.last_verified,
             "website": self.website,
             "hq_location": self.hq_location,
             "corporate_linkedin": self.corporate_linkedin,
@@ -194,4 +201,6 @@ class CandidateFirm:
             if audit:
                 row[f"{name}__quarantined_value"] = c.quarantined_value
                 row[f"{name}__quarantined_reason"] = c.quarantined_reason
+        if audit:
+            row["staleness_reason"] = self.staleness_reason
         return row
