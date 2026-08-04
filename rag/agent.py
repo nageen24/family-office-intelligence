@@ -58,7 +58,8 @@ def _summarize(result) -> dict:
 
 
 def run_agent(goal: str, records: List[dict], planner: Planner, reviewer: Reviewer,
-              budget: int = 8, state: Optional[AgentState] = None) -> AgentState:
+              budget: int = 8, state: Optional[AgentState] = None,
+              cost_budget=None) -> AgentState:
     tools = _tools(records)
     st = state or AgentState(goal=goal)
     st.status = "running"
@@ -67,8 +68,16 @@ def run_agent(goal: str, records: List[dict], planner: Planner, reviewer: Review
         if st.budget_used >= budget:
             st.status = "stopped"
             break
+        # cost budget: refuse (with numbers, logged) before over-spending
+        if cost_budget is not None and cost_budget.over():
+            st.status = "refused"
+            st.refuse_reason = cost_budget.refusal_line()
+            print(st.refuse_reason)
+            break
 
         action = planner(goal, st)
+        if cost_budget is not None:
+            cost_budget.charge()          # the planner turn was a billable LLM call
 
         # worker proposes a final answer -> hand to the SEPARATE release authority
         if "final" in action:
