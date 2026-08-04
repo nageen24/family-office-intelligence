@@ -61,7 +61,7 @@ def with_retry(fn: Callable, attempts: int = 3, base: float = 0.5,
 
 def rate_limited(llm: Callable, min_interval: float,
                  ledger: "Ledger | None" = None,
-                 attempts: int = 3) -> Callable:
+                 attempts: int = 4) -> Callable:
     """Wrap a callable so calls are spaced >= min_interval apart (thread-safe) and
     retried on transient failure; counts each call in the ledger. Works for any
     signature (the LLM client takes system+user)."""
@@ -76,7 +76,9 @@ def rate_limited(llm: Callable, min_interval: float,
             last[0] = time.perf_counter()
         if ledger:
             ledger.bump("llm_calls")
-        return with_retry(lambda: llm(*args, **kwargs), attempts=attempts, base=0.5)
+        # longer backoff (1.5,3,6,12s) — a free-tier 429 needs seconds to clear,
+        # not milliseconds; this is what stops a rate-limit becoming a lost firm.
+        return with_retry(lambda: llm(*args, **kwargs), attempts=attempts, base=1.5)
 
     return wrapped
 

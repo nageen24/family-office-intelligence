@@ -58,9 +58,15 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
     if not page:
         return firm
 
+    # Cap the text sent to the LLM to control tokens-per-minute against the free
+    # tier (mass 429s came from oversized contexts). quote_present verifies against
+    # this SAME text, so proofs stay honest. Full page is kept for the cheap regex
+    # scraping (emails / LinkedIn) below.
+    llm_page = page[:6000]
+
     # Proof B/C — function + type, each quote code-verified against the page.
     fn_llm = lambda text: chat(FUNCTION_SYSTEM, text)
-    proof = extract_function_proof(page, fn_llm)
+    proof = extract_function_proof(llm_page, fn_llm)
     if proof["function_quote"]:
         firm.proof_function_source = firm.website
         firm.proof_function_quote = proof["function_quote"]
@@ -75,7 +81,7 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
 
     # Person-level contact — principal (code-verified on page) + scraped personal email.
     prin_llm = lambda text: chat(PRINCIPAL_SYSTEM, text)
-    prin = extract_principal(page, prin_llm)
+    prin = extract_principal(llm_page, prin_llm)
     if prin:
         firm.principal_name = Cell(
             value=prin["name"], source=firm.website,
