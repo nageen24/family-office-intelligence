@@ -221,14 +221,10 @@ def answer(query: str) -> dict:
         draft = _chat(answerer_sys, f"Records:\n{ctx}\n\nQuestion: {query}")
         if whole_corpus:
             # A whole-corpus list / rank / count is a mechanical read of the
-            # structured fields we supplied — there are no free-text contact facts
-            # for the answerer to invent, so the adversarial validator adds latency
-            # (a second 70B pass over 50 records, past the 60s serverless limit)
-            # without adding protection here. The 2-LLM grounding control stays on
-            # every detail / natural-language query (k=8), where a fabricated email
-            # or figure is the real risk it exists to catch.
-            return {"text": draft, "status": "answered",
-                    "verdict": "approved", "sources": sources}
+            # structured fields we supplied. The adversarial validator adds latency
+            # without protection here, but the DETERMINISTIC release gate still
+            # recomputes the counts from the CSV and blocks a wrong total.
+            return _released(draft, "approved", sources)
         verdict = _chat(validator_sys,
                         f"Records:\n{ctx}\n\nQuestion: {query}\n\nDraft answer: {draft}")
     except Exception:
@@ -238,8 +234,23 @@ def answer(query: str) -> dict:
     v = verdict.strip()
     up = v.upper()
     if up.startswith("APPROVE"):
-        return {"text": draft, "status": "answered", "verdict": "approved", "sources": sources}
+        return _released(draft, "approved", sources)
     if up.startswith("REFINE"):
         refined = v.split(":", 1)[1].strip() if ":" in v else draft
-        return {"text": refined, "status": "answered", "verdict": "refined", "sources": sources}
+        return _released(refined, "refined", sources)
     return {"text": DECLINE_MSG, "status": "declined", "verdict": "declined", "sources": sources}
+
+
+def _released(text: str, verdict: str, sources: list) -> dict:
+    """Deterministic release gate: plain code recomputes the corpus counts from the
+    CSV and blocks the answer if the LLM's numbers don't match (not a prompt promise)."""
+    try:
+        from rag.release_gate import recompute_truth, release_gate
+        from rag.structured import load_records
+        gate = release_gate(text, recompute_truth(load_records()))
+    except Exception:
+        gate = {"ok": True, "reason": None}
+    if not gate["ok"]:
+        return {"text": DECLINE_MSG, "status": "declined", "verdict": "declined",
+                "sources": sources, "gate_blocked": gate["reason"]}
+    return {"text": text, "status": "answered", "verdict": verdict, "sources": sources}
