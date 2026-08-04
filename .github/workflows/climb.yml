@@ -1,0 +1,60 @@
+name: family-office-climb
+
+# S15/S16/S17 — the unattended climb toward 500 qualifying records.
+# Each run enriches the next batch of un-attempted candidates (durable, idempotent
+# state in data/state/climb_pool.json) and commits the accumulated dataset back to
+# the repo, so the Actions tab is the run history and git is the replay/state log.
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: firms to process this run
+        default: "60"
+  schedule:
+    - cron: "0 */6 * * *"        # every 6 hours
+
+permissions:
+  contents: write                 # commit the accumulated state + dataset back
+
+concurrency:
+  group: climb                    # never let two climbs run at once
+  cancel-in-progress: false
+
+jobs:
+  climb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install climb dependencies
+        run: pip install requests pandas dnspython python-dotenv beautifulsoup4 lxml
+
+      - name: Run one climb increment
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CLIMB_BATCH: ${{ github.event.inputs.batch || '60' }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pipeline.climb | tee climb_summary.json
+
+      - name: Show run summary
+        run: cat climb_summary.json
+
+      - name: Commit accumulated results
+        run: |
+          git config user.name "fo-climb-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/state/climb_pool.json data/final/dataset_stage2.csv data/final/climb_audit.csv || true
+          if git diff --staged --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "climb: scheduled run $(date -u +%FT%TZ) [skip ci]"
+            git push
+          fi

@@ -25,7 +25,8 @@ from typing import List, Tuple
 import dns.resolver
 
 from pipeline.schema import (CandidateFirm, Cell, Confidence, Epistemic)
-from pipeline.ontology import Status, email_status, counts_toward_500
+from pipeline.ontology import (Status, email_status, counts_toward_500,
+                               meets_inclusion_floor, meets_commercial_standard)
 from pipeline.validation.entity import resolve_entity
 from pipeline.validation.relabel import relabel_record
 
@@ -135,6 +136,24 @@ def reachability(firm: CandidateFirm) -> int:
     return min(score, 100)
 
 
+def _beyond_seed_count(firm: CandidateFirm) -> int:
+    """Non-blank, non-quarantined cells obtained BEYOND the discovery source.
+
+    The own-site function proof (Proof B) is beyond-seed by construction; so are
+    principal/contact/thesis/signal cells captured during enrichment. Cells that
+    merely echo the discovery seed (the ADV background note) do not count.
+    """
+    n = 0
+    if firm.proof_function_source and firm.proof_function_source == firm.website:
+        n += 1
+    for name in ("principal_name", "principal_title", "principal_email",
+                 "recent_signal", "investing_thesis", "mandate"):
+        c = getattr(firm, name)
+        if not c.is_blank() and c.status is not Status.QUARANTINED:
+            n += 1
+    return n
+
+
 # --- orchestrated validation ----------------------------------------------------
 def validate_all(pool: List[CandidateFirm], min_score: int = 20) -> List[CandidateFirm]:
     for firm in pool:
@@ -166,17 +185,29 @@ def validate_all(pool: List[CandidateFirm], min_score: int = 20) -> List[Candida
                                      "registry location, or named principal")
             continue
 
-        # Qualification (S7 bridge; S8 finalises with the full S3 inclusion floor).
-        # Only a counting category (SFO / MFO / FO-type-unknown) can qualify; a
-        # firm whose FO-function we could not prove does NOT count.
-        if not counts_toward_500(firm.category):
+        # S3 inclusion floor: a record counts only as a qualifying category with
+        # proven existence + FO-function + entity coherence + >=1 beyond-seed cell.
+        function_proven = bool(firm.proof_function_quote or firm.sec_family_office_exemption)
+        firm.counts_toward_500 = meets_inclusion_floor(
+            firm.category, exists=exists, function_proven=function_proven,
+            entity_coherent=bool(firm.entity_coherent),
+            beyond_seed_cells=_beyond_seed_count(firm))
+
+        # S3 commercial standard (the worth-buying tier; a flag, not a gate).
+        firm.is_commercial = meets_commercial_standard(
+            has_decision_maker=not firm.principal_name.is_blank(),
+            has_focus_or_mandate=(not firm.investing_thesis.is_blank()
+                                  or not firm.mandate.is_blank()),
+            has_reachable_route=(not firm.principal_email.is_blank()
+                                 or not firm.principal_phone.is_blank()),
+            has_dated_signal=(not firm.recent_signal.is_blank()
+                              and bool(firm.recent_signal.asof_date)))
+
+        if firm.counts_toward_500:
+            firm.record_status = "Qualified"
+        else:
             firm.record_status = "Rejected"
             firm.rejection_reason = (
-                f"{firm.category.value}: does not count "
+                f"{firm.category.value}: does not meet the inclusion floor "
                 f"({firm.type_evidence})")
-        elif firm.reachability_score < min_score and firm.background.is_blank():
-            firm.record_status = "Rejected"
-            firm.rejection_reason = "too thin: no contactability and no supporting detail"
-        else:
-            firm.record_status = "Qualified"
     return pool
