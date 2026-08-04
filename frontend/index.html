@@ -11,14 +11,15 @@
     <header class="head">
       <h1>Family Office Intelligence</h1>
       <p class="sub">Ask about verified family offices — who to contact, why them, and why now.</p>
-      <p class="corpus">Searching <strong>50 verified family offices</strong>. Each answer shows the most relevant matches, not the whole file.</p>
+      <p class="corpus">Searching <strong id="corpus-count">the verified corpus</strong>. Every answer shows its true scope — how many were searched, matched, and shown.</p>
     </header>
 
     <section class="search">
       <div class="searchbar">
         <input id="q" type="text" autocomplete="off"
-               placeholder="e.g. family offices in New York with a recent signal">
+               placeholder="e.g. best-fit MFOs for a lower-middle-market healthcare PE fund">
         <button id="ask" type="button">Ask</button>
+        <button id="agent" type="button" title="A bounded agent researches your goal; a separate reviewer authorizes the answer or honestly declines.">Run agent</button>
       </div>
       <div class="chips" id="examples">
         <button class="chip" type="button">family offices in New York</button>
