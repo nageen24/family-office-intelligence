@@ -22,15 +22,38 @@ from pipeline.enrichment.contacts import (
 Chat2 = Callable[[str, str], str]     # (system, user) -> content
 
 
+def _distinctive_in(firm_name: str, text: str) -> bool:
+    from pipeline.validation.entity import distinctive_tokens
+    toks = distinctive_tokens(firm_name)
+    low = (text or "").lower()
+    return bool(toks) and all(t in low for t in list(toks)[:2])
+
+
 def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
                     fetch: Callable[[str], str] = fetch_site_text,
-                    ledger=None) -> CandidateFirm:
-    """Fetch the firm's own site once; capture function/type proof + contacts."""
+                    ledger=None, use_browser: bool = False) -> CandidateFirm:
+    """Fetch the firm's own site once; capture function/type proof + contacts.
+
+    With use_browser, a name-only firm (no website) gets one via a rendered search
+    (verified by name-match before trust), and a JS-thin page is supplemented with
+    a rendered fetch so LinkedIn profiles behind JS become visible."""
+    if not firm.website and use_browser:
+        from pipeline.enrichment.render import find_website
+        cand = find_website(firm.firm_name)
+        if cand and _distinctive_in(firm.firm_name, fetch(cand) or ""):
+            firm.website = cand
+            firm.proof_exists = (firm.proof_exists or
+                                 f"website found + name-verified via browser search: {cand}")
     if not firm.website:
         return firm
     page = fetch(firm.website)
     if ledger:
         ledger.bump("fetches")
+    if use_browser and (not page or "linkedin.com/in" not in page):
+        from pipeline.enrichment.render import render_text
+        rendered = render_text(firm.website)
+        if rendered:
+            page = f"{page} {rendered}"[:12000] if page else rendered
     if not page:
         return firm
 

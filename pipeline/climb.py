@@ -78,7 +78,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
                state_path: str = STATE_PATH, out_dir: str = FINAL,
                candidates: Optional[List[CandidateFirm]] = None,
                chat: Optional[Callable] = None,
-               fetch: Callable[[str], str] = fetch_site_text) -> dict:
+               fetch: Callable[[str], str] = fetch_site_text,
+               use_browser: bool = False) -> dict:
     if candidates is None:
         candidates = discover_candidates()
     if chat is None:
@@ -91,7 +92,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     ledger = Ledger()
     rl = rate_limited(chat, min_interval=min_interval, ledger=ledger)
     if todo:
-        enrich_pool(todo, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger),
+        enrich_pool(todo, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
+                                                    use_browser=use_browser),
                     workers=workers, ledger=ledger)
         validate_all(todo)
         merge_pool(state, todo)
@@ -104,7 +106,10 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
 def main():
     import json
     batch = int(os.getenv("CLIMB_BATCH", "60"))
-    print(json.dumps(climb_once(batch_size=batch), indent=2))
+    use_browser = os.getenv("CLIMB_BROWSER", "").lower() in ("1", "true", "yes")
+    workers = 2 if use_browser else 6      # the browser is heavy — go gentler
+    print(json.dumps(climb_once(batch_size=batch, use_browser=use_browser,
+                                workers=workers), indent=2))
 
 
 if __name__ == "__main__":
