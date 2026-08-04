@@ -78,25 +78,48 @@ def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
 _LI_IN = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+", re.I)
 
 
+def _candidate_bases(url: str) -> list[str]:
+    """Base URLs to try: https preferred, and toggle www — ADV stores stale
+    http://www. URLs but many firm sites are https-only or non-www."""
+    from urllib.parse import urlparse
+    p = urlparse(url if "//" in url else "https://" + url)
+    host = p.netloc or p.path
+    hosts = [host, host[4:]] if host.startswith("www.") else [host, "www." + host]
+    bases = [f"{scheme}://{h}" for scheme in ("https", "http") for h in hosts if h]
+    return list(dict.fromkeys(bases))
+
+
+def _get(u: str):
+    try:
+        r = requests.get(u, timeout=15, allow_redirects=True,
+                         headers={"User-Agent": USER_AGENT})
+    except requests.RequestException:
+        return None
+    ct = r.headers.get("content-type", "").lower()
+    if r.status_code < 400 and ("html" in ct or "<html" in r.text[:2000].lower()):
+        return r
+    return None
+
+
 def fetch_site_text(url: str, max_chars: int = 9000) -> str:
     """Homepage + team/about pages, stripped to visible text.
 
-    Team pages are included (that is where a firm 'shows its people'), and any
-    LinkedIn PROFILE URLs found in the raw HTML hrefs are appended to the text so
-    the contact extractor can see them (stripping tags would otherwise drop them).
-    """
+    Robust to stale http/www URLs (tries https + www toggles), lenient on status/
+    content-type, and includes team pages (where a firm 'shows its people'). Any
+    LinkedIn PROFILE URLs in the raw hrefs are appended so the contact extractor
+    can see them (tag-stripping would otherwise drop them)."""
     from urllib.parse import urljoin
+    base = next((b for b in _candidate_bases(url) if _get(b)), None)
+    if not base:
+        return ""
     texts, links = [], []
     for suffix in ("", "about", "about-us", "who-we-are", "team", "our-team",
-                   "people", "firm"):
-        try:
-            r = requests.get(urljoin(url + "/", suffix), timeout=20,
-                             headers={"User-Agent": USER_AGENT})
-            if r.status_code == 200 and "text/html" in r.headers.get("content-type", ""):
-                texts.append(_visible_text(r.text))
-                links += _LI_IN.findall(r.text)
-        except requests.RequestException:
-            continue
+                   "people", "our-people", "leadership", "advisors", "partners",
+                   "management", "firm", "contact"):
+        r = _get(urljoin(base + "/", suffix))
+        if r is not None:
+            texts.append(_visible_text(r.text))
+            links += _LI_IN.findall(r.text)
         if sum(len(t) for t in texts) >= max_chars:
             break
     body = " ".join(texts)[:max_chars]
