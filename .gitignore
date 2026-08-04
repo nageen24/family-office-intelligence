@@ -40,3 +40,4 @@ data/rag/
 .vercel
 data/state/needs_human.json
 data/state/human_decisions.log
+data/goals/

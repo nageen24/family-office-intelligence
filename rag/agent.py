@@ -184,6 +184,11 @@ def answer_goal(goal: str, csv_path: Optional[str] = None, budget: int = 8) -> A
         open_case(f"agent escalated: {goal}",
                   {"goal": goal, "draft": st.draft, "findings": len(st.findings)},
                   options=["approve as-is", "revise", "reject"])
+    try:
+        from rag.replay import write_replay
+        write_replay(goal, st)          # raw ordered JSONL trace of this goal run
+    except Exception:
+        pass
     return st
 
 
