@@ -12,7 +12,7 @@ on:
         description: firms to process this run
         default: "60"
   schedule:
-    - cron: "0 */6 * * *"        # every 6 hours
+    - cron: "0 */3 * * *"        # every 3 hours
 
 permissions:
   contents: write                 # commit the accumulated state + dataset back
@@ -54,8 +54,16 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add data/state/climb_pool.json data/final/dataset_stage2.csv data/final/climb_audit.csv || true
           if git diff --staged --quiet; then
-            echo "no changes to commit"
-          else
-            git commit -m "climb: scheduled run $(date -u +%FT%TZ) [skip ci]"
-            git push
+            echo "no changes to commit"; exit 0
           fi
+          git commit -m "climb: scheduled run $(date -u +%FT%TZ) [skip ci]"
+          # A concurrent push (dev or another run) moves main, so rebase our commit
+          # on top and retry — the bot owns the data files, so prefer our version.
+          for i in 1 2 3 4 5; do
+            if git pull --rebase --autostash -X theirs origin main && git push; then
+              echo "pushed on attempt $i"; exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "push race — retrying ($i)"; sleep $((RANDOM % 8 + 3))
+          done
+          echo "push failed after retries"; exit 1
