@@ -61,7 +61,20 @@ def build_metadata(row: dict) -> dict:
     }
 
 
-def build_index(client, csv_path: str = "data/final/dataset.csv",
+def default_csv() -> str:
+    """Serve the Stage-2 dataset once the climb has produced records; otherwise
+    fall back to the Stage-1 file so the retrieval demo never goes empty."""
+    import os
+    s2 = "data/final/dataset_stage2.csv"
+    try:
+        if os.path.exists(s2) and sum(1 for _ in open(s2, encoding="utf-8")) > 1:
+            return s2
+    except OSError:
+        pass
+    return "data/final/dataset.csv"
+
+
+def build_index(client, csv_path: str = None,
                 collection: str = "firms") -> int:
     """Populate any Qdrant client (file, memory, or server) from the dataset.
 
@@ -71,6 +84,7 @@ def build_index(client, csv_path: str = "data/final/dataset.csv",
     from qdrant_client.models import Distance, VectorParams, PointStruct
     from rag.embed import embed
 
+    csv_path = csv_path or default_csv()
     rows: List[dict] = list(csv.DictReader(open(csv_path, encoding="utf-8")))
     blurbs = [record_to_blurb(r) for r in rows]
     vecs = embed(blurbs)  # (n, dim) L2-normalized
@@ -88,13 +102,13 @@ def build_index(client, csv_path: str = "data/final/dataset.csv",
     return len(points)
 
 
-def ingest(csv_path: str = "data/final/dataset.csv",
+def ingest(csv_path: str = None,
            qdrant_path: str = "data/rag/qdrant",
            collection: str = "firms") -> int:
     """Persistent build to a local Qdrant folder (for inspection/dev)."""
     from qdrant_client import QdrantClient
     client = QdrantClient(path=qdrant_path)
-    return build_index(client, csv_path, collection)
+    return build_index(client, csv_path or default_csv(), collection)
 
 
 if __name__ == "__main__":
