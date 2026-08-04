@@ -11,7 +11,14 @@ const COPY = {
   error:    "Momentarily unavailable — this is on our side, not your question. Please try again in a moment.",
 };
 
-function card(status, text, sources) {
+// The real second-model (LLM-2 validator) outcome, shown — not asserted.
+const VERDICT_BADGE = {
+  approved: "✓ Second AI verified — every claim checks out against the records",
+  refined:  "✎ Second AI corrected this — trimmed to only what the records support",
+  declined: "⦸ Second AI held this back — the records didn't fully support it",
+};
+
+function card(status, text, sources, verdict) {
   const el = document.createElement("div");
   el.className = "card " + status;
   const p = document.createElement("p");
@@ -20,24 +27,26 @@ function card(status, text, sources) {
   p.style.whiteSpace = "pre-wrap";    // pre-wrap makes the bullet/numbered newlines show
   el.appendChild(p);
 
-  // value cues only on a real answer
-  if (status === "answered") {
+  // Show the second model's actual decision on any answered/declined result.
+  if (status === "answered" || status === "declined") {
     const meta = document.createElement("div");
     meta.className = "meta";
-    const n = (sources || []).length;
-    const based = document.createElement("span");
-    based.className = "based";
-    based.textContent = n ? `Top ${n} most-relevant record${n > 1 ? "s" : ""} searched:` : "";
-    meta.appendChild(based);
-    (sources || []).forEach(s => {
-      const c = document.createElement("span");
-      c.className = "srcchip";
-      c.textContent = s;
-      meta.appendChild(c);
-    });
+    if (status === "answered") {
+      const n = (sources || []).length;
+      const based = document.createElement("span");
+      based.className = "based";
+      based.textContent = n ? `Top ${n} most-relevant record${n > 1 ? "s" : ""} searched:` : "";
+      meta.appendChild(based);
+      (sources || []).forEach(s => {
+        const c = document.createElement("span");
+        c.className = "srcchip";
+        c.textContent = s;
+        meta.appendChild(c);
+      });
+    }
     const badge = document.createElement("span");
     badge.className = "badge";
-    badge.textContent = "✓ checked by a second AI";
+    badge.textContent = VERDICT_BADGE[verdict] || VERDICT_BADGE[status] || "";
     meta.appendChild(badge);
     el.appendChild(meta);
   }
@@ -66,7 +75,7 @@ async function ask(query) {
     let text = d.text;
     if (status === "no_match") text = COPY.no_match;
     if (status === "error") text = COPY.error;
-    card(status, text, d.sources);
+    card(status, text, d.sources, d.verdict);   // show the second model's real verdict
   } catch (e) {
     card("error", COPY.error);
   } finally {
