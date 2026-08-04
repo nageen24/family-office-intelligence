@@ -112,10 +112,24 @@ def run_agent(goal: str, records: List[dict], planner: Planner, reviewer: Review
                          "result": _summarize(result)})
         if isinstance(result, dict) and result.get("hits"):
             st.findings.extend(result["hits"])
-        # a count(...) result carries no hits; keep it so scope reports the real
-        # number instead of collapsing to "0 matched".
+        # A count(...) result IS the deliverable for a counting goal: once it's in,
+        # the agent has its answer, so it terminates here instead of looping until
+        # the budget kills it and the run is mislabeled 'partial'. The count still
+        # passes through the SAME independent release authority — the worker never
+        # certifies itself.
         if tool == "count" and isinstance(result, dict) and "count" in result:
-            st.count_result = result["count"]
+            n = st.count_result = result["count"]
+            st.draft = {"answer": f"{n} matching record{'' if n == 1 else 's'}",
+                        "count": n, "scope": "full corpus"}
+            verdict = reviewer(goal, st.draft, st.findings)
+            st.release = verdict if verdict in ("approved", "refused", "escalated") else "refused"
+            if st.release == "approved":
+                st.output, st.status = st.draft, "done"
+            elif st.release == "escalated":
+                st.status = "escalated"
+            else:
+                st.status = "refused"
+            break
     return st
 
 

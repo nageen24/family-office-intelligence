@@ -91,6 +91,30 @@ def test_count_result_is_captured_for_scope():
     assert st.findings == []             # count carries no record hits
 
 
+def test_count_goal_completes_instead_of_looping_to_budget():
+    # regression: once the count is in, the agent must STOP and return 'done' —
+    # not keep calling the planner until the budget kills it (which mislabels the
+    # run 'stopped' -> 'partial'). This planner would loop forever if not stopped.
+    planner = _planner([{"tool": "count", "args": {}}]
+                       + [{"tool": "search", "args": {}}] * 20)
+    st = run_agent("how many records are in the dataset", CORPUS, planner,
+                   _approve, budget=8)
+    assert st.status == "done"           # completed, not 'stopped'
+    assert st.release == "approved"
+    assert st.count_result == 2
+    assert st.budget_used == 1           # stopped after the single count step
+    assert st.output["count"] == 2
+
+
+def test_count_goal_still_answers_to_the_independent_authority():
+    # the count is not auto-trusted: it passes the SAME release authority. A
+    # refusing authority yields 'refused', not a silent 'done'.
+    planner = _planner([{"tool": "count", "args": {}}])
+    st = run_agent("how many records", CORPUS, planner, lambda g, d, f: "refused")
+    assert st.status == "refused"
+    assert st.output is None
+
+
 def test_durable_state_resumes(tmp_path):
     planner = _planner([{"tool": "search", "args": {"category": "MFO"}}, {"final": DRAFT}])
     st = run_agent("goal", CORPUS, planner, _approve, budget=1)   # stops after 1 step

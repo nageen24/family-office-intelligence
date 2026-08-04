@@ -21,7 +21,7 @@ def test_refusal_reports_numbers():
 
 
 def test_agent_refuses_when_cost_budget_exhausted():
-    planner = lambda goal, state: {"tool": "count", "args": {}}   # never drafts
+    planner = lambda goal, state: {"tool": "search", "args": {}}   # never drafts, never terminates
     st = run_agent("goal", [{"category": "MFO"}], planner, lambda g, d, f: "approved",
                    budget=99, cost_budget=Budget(max_calls=2))
     assert st.status == "refused"
