@@ -1,0 +1,111 @@
+"""Google Custom Search (JSON API) — structured LinkedIn lookup, no scraping.
+
+The free-search wall (Bing obfuscates, DDG/Mojeek/SearXNG block) is beaten by the
+Custom Search JSON API: a Programmable Search Engine restricted to linkedin.com/in
+returns result URLs as clean JSON. We query "name" + firm, take the /in/ profile
+URL, and verify the slug name-matches the principal — a personal reach route
+labeled `inferred` (search-found, not verified by fetching the profile).
+
+Capped at the free tier's 100 queries/day (a committed daily counter shared across
+scheduled runs); graceful no-op without GOOGLE_API_KEY / GOOGLE_CSE_ID.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+from datetime import date
+from typing import Optional
+
+from pipeline.schema import CandidateFirm, Cell, Epistemic, Confidence
+from pipeline.ontology import Status, RouteType
+
+QUOTA_PATH = os.path.join("data", "state", "gcse_quota.json")
+_IN = re.compile(r"linkedin\.com/in/([A-Za-z0-9\-_%]+)", re.I)
+
+
+def _slug_matches(url: str, name: str) -> bool:
+    m = _IN.search(url or "")
+    if not m:
+        return False                       # not a /in/ profile (e.g. /company/)
+    slug = m.group(1).lower()
+    toks = [t for t in re.split(r"[^a-z]+", (name or "").lower()) if len(t) >= 3]
+    return len(toks) >= 2 and toks[0] in slug and toks[-1] in slug
+
+
+# --- daily quota (free tier = 100/day) -----------------------------------------
+def _load_quota(path: str) -> dict:
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def daily_quota_ok(path: str = QUOTA_PATH, limit: int = 100) -> bool:
+    q = _load_quota(path)
+    if q.get("date") != date.today().isoformat():
+        return True                        # new day resets the count
+    return q.get("count", 0) < limit
+
+
+def bump_quota(path: str = QUOTA_PATH) -> None:
+    today = date.today().isoformat()
+    q = _load_quota(path)
+    if q.get("date") != today:
+        q = {"date": today, "count": 0}
+    q["count"] = q.get("count", 0) + 1
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(q, f)
+
+
+def find_person_linkedin(name: str, firm: str, client) -> Optional[str]:
+    """First CSE result on a /in/ profile whose slug name-matches the principal."""
+    for url in client.search(f'"{name}" {firm}') or []:
+        if _slug_matches(url, name):
+            return re.sub(r"\?.*$", "", url)     # drop tracking params
+    return None
+
+
+def enrich_gcse(firm: CandidateFirm, client) -> CandidateFirm:
+    if firm.principal_name.is_blank() or not firm.principal_linkedin.is_blank():
+        return firm
+    li = find_person_linkedin(firm.principal_name.value, firm.firm_name, client)
+    if li:
+        firm.principal_linkedin = Cell(
+            value=li, source="Google Custom Search (linkedin.com/in)",
+            method="found via CSE restricted to linkedin.com/in; slug name-matched "
+                   "to the principal; not verified by fetching the profile",
+            epistemic=Epistemic.INFERENCE, confidence=Confidence.MEDIUM,
+            status=Status.INFERRED, route=RouteType.PERSONAL)
+    return firm
+
+
+class GoogleCSE:
+    """Live Custom Search JSON API client. Needs GOOGLE_API_KEY + GOOGLE_CSE_ID."""
+
+    ENDPOINT = "https://www.googleapis.com/customsearch/v1"
+
+    def __init__(self, api_key: Optional[str] = None, cse_id: Optional[str] = None,
+                 quota_path: str = QUOTA_PATH, daily_limit: int = 100):
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        self.cse_id = cse_id or os.getenv("GOOGLE_CSE_ID")
+        self.quota_path = quota_path
+        self.daily_limit = daily_limit
+
+    def enabled(self) -> bool:
+        return bool(self.api_key and self.cse_id)
+
+    def search(self, query: str) -> list[str]:
+        if not self.enabled() or not daily_quota_ok(self.quota_path, self.daily_limit):
+            return []
+        import requests
+        try:
+            bump_quota(self.quota_path)     # count the query against the daily cap
+            r = requests.get(self.ENDPOINT, timeout=15, params={
+                "key": self.api_key, "cx": self.cse_id, "q": query, "num": 5})
+            if not r.ok:
+                return []
+            return [it.get("link", "") for it in r.json().get("items", [])]
+        except requests.RequestException:
+            return []

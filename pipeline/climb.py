@@ -139,12 +139,32 @@ def _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
     failed = {id(f) for f in ledger.failures}
     done = [f for f in firms if id(f) not in failed]
     validate_all(done)
-    if _apollo_pass(done, apollo_email_budget, apollo_client):
+    # reach-recovery for function-proven firms with no personal route: first the
+    # Google CSE LinkedIn lookup (free 100/day), then Apollo (paid). Both graceful.
+    recovered = _gcse_pass(done)
+    recovered = _apollo_pass(done, apollo_email_budget, apollo_client) or recovered
+    if recovered:
         validate_all(done)
     for f in done:
         if f.proof_function_quote and not f.last_verified:
             f.last_verified, f.trust = today, "fresh"
     return done
+
+
+def _gcse_pass(firms, client=None) -> int:
+    """Find LinkedIn via Google Custom Search for function-proven firms that have a
+    named principal but no personal route. Graceful no-op without a CSE key."""
+    from pipeline.enrichment.gcse import GoogleCSE, enrich_gcse
+    from pipeline.validation.validate import _has_personal_reach
+    client = client or GoogleCSE()
+    if hasattr(client, "enabled") and not client.enabled():
+        return 0
+    gap = [f for f in firms
+           if (f.proof_function_quote or f.sec_family_office_exemption)
+           and not _has_personal_reach(f) and not f.principal_name.is_blank()]
+    for f in gap:
+        enrich_gcse(f, client)
+    return len(gap)
 
 
 def _apollo_pass(firms, email_budget: int, client=None) -> int:

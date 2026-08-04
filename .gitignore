@@ -41,3 +41,4 @@ data/rag/
 data/state/needs_human.json
 data/state/human_decisions.log
 data/goals/
+data/state/gcse_quota.json
