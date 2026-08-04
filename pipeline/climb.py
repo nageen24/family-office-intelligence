@@ -96,37 +96,55 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     from datetime import date
     today = date.today().isoformat()
 
-    if todo:
-        enrich_pool(todo, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
-                                                    use_browser=use_browser,
-                                                    add_news=add_news),
-                    workers=workers, ledger=ledger)
-        # Only merge firms that COMPLETED enrichment. A firm that threw (e.g. a
-        # Groq rate-limit) is left out of state so it is retried next run, not
-        # silently marked done with no data.
-        failed = {id(f) for f in ledger.failures}
-        done = [f for f in todo if id(f) not in failed]
-        validate_all(done)
-        # Apollo reach-recovery: fill LinkedIn/email (provider-returned, our own
-        # validation) for function-proven firms still missing a personal route,
-        # then re-validate so a recovered reach lets the record qualify.
-        if _apollo_pass(done, apollo_email_budget, apollo_client):
-            validate_all(done)
-        for f in done:                       # stamp a freshly-proven source
-            if f.proof_function_quote and not f.last_verified:
-                f.last_verified, f.trust = today, "fresh"
-        merge_pool(state, done)
+    def process(firms):
+        return _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
+                              apollo_email_budget, apollo_client, workers, today)
 
-    # S19 — cross-run staleness: re-check a few aging sources, adjust trust,
-    # re-validate (a contradicted source loses its proof and the record drops).
-    rechecked = _recheck_stale(state, fetch, today, limit=recheck_size, ledger=ledger)
-    if todo or rechecked:
+    if todo:
+        merge_pool(state, process(todo))
+
+    # S19 — cross-run staleness: re-check aging sources, adjust trust, re-validate
+    # (a contradicted source loses its proof and the record drops out of the set).
+    rechecked, demoted = _recheck_stale(state, fetch, today, limit=recheck_size,
+                                        ledger=ledger)
+
+    # Self-replenishing quarantine loop: for every qualifying record the recheck
+    # demoted, promote the next un-attempted candidate to hold the count.
+    replenished = 0
+    if demoted:
+        repl = unattempted(candidates, state)[:demoted]
+        if repl:
+            merge_pool(state, process(repl))
+            replenished = len(repl)
+            print(f"[replenish] {demoted} demoted -> promoted {replenished} "
+                  f"candidate(s) to hold the count")
+
+    if todo or rechecked or replenished:
         save_state(state_path, state)
 
     _write_dataset(state, out_dir)
     summary = _summary(state, ledger, len(todo))
-    summary["rechecked"] = rechecked
+    summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished)
     return summary
+
+
+def _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
+                   apollo_email_budget, apollo_client, workers, today):
+    """Enrich -> validate -> Apollo-recover -> stamp one batch; return the firms
+    that completed (a firm that threw is left out to retry next run)."""
+    enrich_pool(firms, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
+                                                 use_browser=use_browser,
+                                                 add_news=add_news),
+                workers=workers, ledger=ledger)
+    failed = {id(f) for f in ledger.failures}
+    done = [f for f in firms if id(f) not in failed]
+    validate_all(done)
+    if _apollo_pass(done, apollo_email_budget, apollo_client):
+        validate_all(done)
+    for f in done:
+        if f.proof_function_quote and not f.last_verified:
+            f.last_verified, f.trust = today, "fresh"
+    return done
 
 
 def _apollo_pass(firms, email_budget: int, client=None) -> int:
@@ -153,9 +171,12 @@ def _apollo_pass(firms, email_budget: int, client=None) -> int:
     return len(gap)
 
 
-def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None) -> int:
+def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None):
+    """Return (rechecked, demoted) — demoted = records that were Qualified and,
+    after the re-check, no longer are (their source contradicted the stored proof)."""
     from pipeline.staleness import needs_recheck, apply_recheck
     targets = [f for f in state.values() if needs_recheck(f, today)][:limit]
+    was_qualified = {id(f) for f in targets if f.record_status == "Qualified"}
     for f in targets:
         fresh = fetch(f.website) if f.website else None
         if ledger:
@@ -163,7 +184,9 @@ def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None) -> i
         apply_recheck(f, fresh, today)
     if targets:
         validate_all(targets)                # contradicted -> proof gone -> drops
-    return len(targets)
+    demoted = sum(1 for f in targets
+                  if id(f) in was_qualified and f.record_status != "Qualified")
+    return len(targets), demoted
 
 
 def main():

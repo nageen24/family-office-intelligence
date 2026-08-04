@@ -44,6 +44,24 @@ def test_climb_once_accumulates_and_writes_dataset(tmp_path):
     assert (tmp_path / "dataset.csv").exists()
 
 
+def test_recheck_detects_a_demotion_for_replenishment():
+    # a qualified, stale record whose live site now contradicts its stored proof
+    from pipeline.climb import _recheck_stale
+    from pipeline.state import firm_key
+    f = CandidateFirm(firm_name="Old Family Office", discovery_source="SEC Form ADV")
+    f.website = "https://old.com"
+    f.proof_function_source = f.website
+    f.proof_function_quote = "Old is a single family office"
+    f.record_status = "Qualified"
+    f.last_verified = "2026-06-01"
+    state = {firm_key(f): f}
+    rechecked, demoted = _recheck_stale(state, lambda u: "We are now a commercial bank.",
+                                        "2026-08-04", limit=5)
+    assert rechecked == 1 and demoted == 1                 # demotion counted -> climb replenishes
+    assert f.proof_function_quote is None                  # contradicted proof withheld
+    assert f.record_status != "Qualified"
+
+
 def test_climb_once_is_idempotent_on_rerun(tmp_path):
     state_path = str(tmp_path / "state.json")
     kw = dict(candidates=_cands(), chat=_chat, fetch=lambda u: PAGE,
