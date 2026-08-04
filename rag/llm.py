@@ -3,14 +3,14 @@
 Both LLM-1 (answerer) and LLM-2 (validator) call `chat()`, which tries providers
 in order and falls over to the next if one is down/rate-limited:
 
-  1. Groq          — primary; fast, free.
-  2. NVIDIA NIM    — backup; if Groq errors, the same call runs here instead.
+  1. Groq (key 1) — primary; fast, free.
+  2. Groq (key 2) — backup on an independent account; if key 1 errors or is
+     rate-limited, the same call runs here instead.
 
-Both are OpenAI-compatible and use a llama-3.3-70b model, so the answer behaviour
-stays consistent across providers. Only if EVERY configured provider fails does
-the caller get an error state. Providers with no key configured are skipped.
-Keys live in .env (gitignored). Neither is Google, so both dodge the IP-flag that
-blocked our earlier search work.
+Both use a llama-3.3-70b model, so behaviour stays consistent. Only if EVERY
+configured provider fails does the caller get an error state. A provider with no
+key configured is skipped. Keys live in .env (gitignored) / GitHub + Vercel
+secrets. Groq isn't Google, so it dodges the IP-flag that blocked our search work.
 """
 from __future__ import annotations
 
@@ -23,17 +23,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # (name, endpoint, api-key env var, model id)
-# Primary + backup are BOTH Groq (same fast llama-3.3-70b) but on two independent
-# accounts/keys, so one account's rate-limit doesn't take answering down — this
-# replaced OpenRouter as backup after its free daily quota kept 429-ing. OpenRouter
-# is kept as a last-ditch third only if its key is set; it's skipped entirely when
-# the two Groq keys answer.
+# Primary + backup are BOTH Groq (same fast llama-3.3-70b) on two independent
+# accounts/keys, so one account's rate-limit or outage doesn't take answering
+# down. The second key IS the redundancy; a provider with no key set is skipped.
 GROQ = "https://api.groq.com/openai/v1/chat/completions"
 PROVIDERS = [
     ("groq", GROQ, "GROQ_API_KEY", "llama-3.3-70b-versatile"),
     ("groq-2", GROQ, "GROQ_API_KEY_2", "llama-3.3-70b-versatile"),
-    ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
-     "OPENROUTER_API_KEY", "openai/gpt-oss-20b:free"),
 ]
 
 
@@ -66,7 +62,7 @@ def _call(provider: tuple, system: str, user: str, temperature: float) -> str:
 def chat(system: str, user: str, temperature: float = 0.0) -> str:
     providers = _configured()
     if not providers:
-        raise RuntimeError("No LLM provider key set (GROQ_API_KEY / OPENROUTER_API_KEY)")
+        raise RuntimeError("No LLM provider key set (GROQ_API_KEY / GROQ_API_KEY_2)")
     last: Optional[Exception] = None
     for provider in providers:  # try each once; the next provider is the fallback
         try:

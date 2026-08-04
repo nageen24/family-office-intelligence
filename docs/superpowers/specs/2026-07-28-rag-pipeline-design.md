@@ -95,10 +95,10 @@ Every non-happy path returns a plain-English message, never an error dump:
 
 ## 8. Stack (provider) — decision & fallback
 
-- **LLMs:** **Groq primary + NVIDIA NIM failover** (candidate decision, logged).
-  LLM-1 and LLM-2 both call a chain: Groq (`llama-3.3-70b-versatile`) first, and
-  on any Groq failure the same call falls over to NVIDIA
-  (`meta/llama-3.3-70b-instruct`). Two independent providers = no single point of
+- **LLMs:** **Groq on two independent keys (primary + backup failover)** (candidate
+  decision, logged). LLM-1 and LLM-2 both call a chain: Groq key 1
+  (`llama-3.3-70b-versatile`) first, and on any failure the same call falls over to
+  Groq key 2 on a separate account. Two independent keys = no single point of
   failure; only if both fail does the user get the honest `error` state. Neither
   is Google, so both dodge the IP-flag that blocked earlier search work.
 - **Embeddings:** **local `all-MiniLM-L6-v2`** (sentence-transformers, ~80MB) —

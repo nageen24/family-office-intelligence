@@ -18,9 +18,9 @@ what doesn't, the live queries I actually ran, and what I'd improve.
   model2vec has no native ML runtime, is keyless, and works both in dev and on the
   Linux deploy target. Trade-off: static embeddings are a notch weaker than a full
   transformer on nuance — acceptable for 50 records and short IR-style queries.
-- **LLMs:** two providers with automatic failover — Groq (primary,
-  `llama-3.3-70b-versatile`) then OpenRouter (`openai/gpt-oss-20b:free`). Both
-  OpenAI-compatible; if the primary is down/slow the same call runs on the backup.
+- **LLMs:** Groq on two independent keys with automatic failover — key 1 (primary,
+  `llama-3.3-70b-versatile`) then key 2 on a separate account. If the primary key is
+  down/slow the same call runs on the backup key.
 
 ## Chunking strategy
 **One record = one chunk.** Each firm becomes a single human-readable blurb
