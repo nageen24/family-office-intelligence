@@ -78,6 +78,19 @@ def test_agent_stops_on_budget_exhaustion():
     assert st.budget_used == 3
 
 
+def test_count_result_is_captured_for_scope():
+    # a count goal returns a number, not hits; the state must keep that number so
+    # scope reports it instead of collapsing to "0 matched".
+    planner = _planner([
+        {"tool": "count", "args": {"category": "MFO"}},
+        {"final": DRAFT},
+    ])
+    st = run_agent("how many MFOs", CORPUS, planner, _approve)
+    assert st.status == "done"
+    assert st.count_result == 2          # both CORPUS firms are MFO
+    assert st.findings == []             # count carries no record hits
+
+
 def test_durable_state_resumes(tmp_path):
     planner = _planner([{"tool": "search", "args": {"category": "MFO"}}, {"final": DRAFT}])
     st = run_agent("goal", CORPUS, planner, _approve, budget=1)   # stops after 1 step

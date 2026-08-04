@@ -25,4 +25,8 @@ Why: because contact info isnt easily availbale on free sources. and websites bl
 
 11. I decided to making the robot climb to 500 records on its own (Apollo for contacts, faster runs, every 3h). also adding safety brains: it asks before risky decisions, double-checks its own answers, watches its spending, and replaces bad records automatically.
 
-12. decided to remove all discarded api keys reference from code(like SNOv, etc). so no conflicting data confuse anyone.
+12. decided to remove all discarded api keys reference from code(like SNOv, google api key, etc). so no conflicting data confuse anyone.
+
+13. i decided to use serper.dev api key for principal name + firm + linkedin" and grab the person's LinkedIn URL instead of google api, because it was walled up blocked by google fro free tier.
+
+14. I figured out issues Count question gave "0 matched / partial" — should answer "4 records, all reachable". Example question mentions Duquesne — not in dataset anymore, must be swapped for real ones. "verified" wording may overclaim — label must match data status. Agent button opens no type box , so fixed them

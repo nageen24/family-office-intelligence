@@ -17,18 +17,21 @@ body{
 .corpus strong{color:var(--ink)}
 
 .searchbar{display:flex; gap:10px}
-#q{
+.agentbar{margin-top:10px}
+#q, #goal{
   flex:1; padding:14px 16px; font-size:1rem; color:var(--ink);
   background:var(--card); border:1px solid var(--line); border-radius:12px;
   box-shadow:var(--shadow); outline:none;
 }
-#q:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(31,94,255,.15)}
-#ask{
+#q:focus, #goal:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(31,94,255,.15)}
+#ask, #agent{
   padding:0 22px; font-size:1rem; font-weight:600; color:#fff; cursor:pointer;
   background:var(--brand); border:0; border-radius:12px; transition:background .15s;
 }
-#ask:hover{background:var(--brand-ink)}
-#ask:disabled{opacity:.6; cursor:default}
+#ask:hover, #agent:hover{background:var(--brand-ink)}
+#ask:disabled, #agent:disabled{opacity:.6; cursor:default}
+#agent{background:var(--card); color:var(--brand); border:1px solid var(--brand)}
+#agent:hover{background:var(--brand); color:#fff}
 
 .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
 .chip{

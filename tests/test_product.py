@@ -40,6 +40,15 @@ def test_escalated_maps_to_declined_with_note():
     assert "escalat" in r["scope_line"].lower()
 
 
+def test_agent_count_answer_reports_the_count_not_zero():
+    # regression: a count goal (no record hits) must show the real number in scope.
+    r = respond({"status": "done", "findings": [], "count_result": 4,
+                 "eligible": 4, "output": {"answer": "4"}, "goal": "how many"})
+    assert r["state"] == "answered"
+    assert r["scope"]["matched"] == 4
+    assert "4 matched" in r["scope_line"]
+
+
 def test_error_state():
     assert respond({"error": "LLM provider down"})["state"] == "error"
 

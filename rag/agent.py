@@ -39,6 +39,7 @@ class AgentState:
     output: Optional[dict] = None    # set ONLY on approved release
     refuse_reason: Optional[str] = None
     budget_used: int = 0
+    count_result: Optional[int] = None   # last count(...) tool result, for scope
 
 
 def _tools(records: List[dict]) -> dict:
@@ -111,6 +112,10 @@ def run_agent(goal: str, records: List[dict], planner: Planner, reviewer: Review
                          "result": _summarize(result)})
         if isinstance(result, dict) and result.get("hits"):
             st.findings.extend(result["hits"])
+        # a count(...) result carries no hits; keep it so scope reports the real
+        # number instead of collapsing to "0 matched".
+        if tool == "count" and isinstance(result, dict) and "count" in result:
+            st.count_result = result["count"]
     return st
 
 

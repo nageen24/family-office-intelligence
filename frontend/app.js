@@ -127,8 +127,8 @@ function renderAgent(d) {
 
 async function runAgent(goal) {
   const g = (goal || "").trim();
-  if (!g) { card("empty", COPY.empty); return; }
-  agentBtn.disabled = true; askBtn.disabled = true; qEl.disabled = true;
+  if (!g) { card("empty", "Type a research goal for the agent, then press Run agent."); goalEl.focus(); return; }
+  agentBtn.disabled = true; askBtn.disabled = true; qEl.disabled = true; goalEl.disabled = true;
   agentBtn.textContent = "Researching…";
   try {
     const r = await fetch("/agent", {
@@ -139,12 +139,14 @@ async function runAgent(goal) {
   } catch (e) {
     renderAgent({ state: "error", scope_line: "" });
   } finally {
-    agentBtn.disabled = false; askBtn.disabled = false; qEl.disabled = false;
+    agentBtn.disabled = false; askBtn.disabled = false; qEl.disabled = false; goalEl.disabled = false;
     agentBtn.textContent = "Run agent";
   }
 }
 const agentBtn = document.getElementById("agent");
-agentBtn.addEventListener("click", () => runAgent(qEl.value));
+const goalEl = document.getElementById("goal");
+agentBtn.addEventListener("click", () => runAgent(goalEl.value));
+goalEl.addEventListener("keydown", e => { if (e.key === "Enter") runAgent(goalEl.value); });
 
 // honest, dynamic corpus size (no hard-coded number)
 fetch("/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })

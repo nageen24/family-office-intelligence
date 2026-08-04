@@ -43,8 +43,13 @@ def respond(result: dict) -> dict:
     if "status" in result:
         s = result["status"]
         findings = result.get("findings", [])
+        # A count(...) goal returns a number, not record hits — so scope reports
+        # that count instead of collapsing to "0 matched" when no hits were listed.
+        count_result = result.get("count_result")
+        matched = len(findings) if findings else (count_result or 0)
+        shown = len(findings) if findings else matched
         scope = {"eligible": result.get("eligible", len(findings)),
-                 "matched": len(findings), "shown": len(findings)}
+                 "matched": matched, "shown": shown}
         if s == "done":
             return {"state": "answered", "scope": scope, "output": result.get("output"),
                     "scope_line": _scope_line(scope),
