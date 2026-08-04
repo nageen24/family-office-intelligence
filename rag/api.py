@@ -38,6 +38,13 @@ def root():
     return FileResponse(os.path.join(_FE, "index.html"))
 
 
+@app.get("/agent")
+def agent_page():
+    """The Agent page (separate link from Search, per the brief). The POST /agent
+    endpoint below runs the agent; this GET serves its UI."""
+    return FileResponse(os.path.join(_FE, "agent.html"))
+
+
 @app.get("/health")
 def health():
     return {"ok": True}

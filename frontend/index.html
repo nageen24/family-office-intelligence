@@ -3,12 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Family Office Intelligence</title>
+  <title>Family Office Intelligence — Search</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <main class="wrap">
     <header class="head">
+      <nav class="nav">
+        <a class="navlink active" href="/">Search</a>
+        <a class="navlink" href="/agent">Agent</a>
+      </nav>
       <h1>Family Office Intelligence</h1>
       <p class="sub">Ask about the family offices in this dataset — who to contact, why them, and why now. Answers come only from what the records can prove.</p>
       <p class="corpus">Searching <strong id="corpus-count">the corpus</strong>. Each firm is proven from its own website or filings<span id="type-breakdown"></span>. Every answer shows how many records were searched, matched, and shown.</p>
@@ -19,11 +23,6 @@
         <input id="q" type="text" autocomplete="off"
                placeholder="e.g. best-fit MFOs for a lower-middle-market healthcare PE fund">
         <button id="ask" type="button">Ask</button>
-      </div>
-      <div class="searchbar agentbar">
-        <input id="goal" type="text" autocomplete="off"
-               placeholder="Give the agent a research goal — e.g. shortlist reachable MFOs in Texas">
-        <button id="agent" type="button" title="A bounded agent researches your goal; a separate reviewer authorizes the answer or honestly declines.">Run agent</button>
       </div>
       <div class="chips" id="examples">
         <button class="chip" type="button">Who leads Eagle Bay Family Office?</button>
@@ -39,10 +38,10 @@
     <section id="answer" class="answer" aria-live="polite"></section>
 
     <footer class="foot">
-      Answers come only from verified records. When the evidence is thin, the
-      system says so rather than guessing.
+      Answers come only from what the records can prove. When the evidence is thin,
+      the system says so rather than guessing.
     </footer>
   </main>
-  <script src="/static/app.js"></script>
+  <script src="/static/search.js"></script>
 </body>
 </html>

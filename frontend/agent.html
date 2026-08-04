@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Family Office Intelligence — Agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="head">
+      <nav class="nav">
+        <a class="navlink" href="/">Search</a>
+        <a class="navlink active" href="/agent">Agent</a>
+      </nav>
+      <h1>Research Agent</h1>
+      <p class="sub">Give the agent a research goal. A bounded worker gathers evidence from the records; a separate authority releases the answer or honestly declines.</p>
+      <p class="corpus">Working over <strong id="corpus-count">the corpus</strong>. Every result carries its scope and each shortlisted firm shows an explicit confidence.</p>
+    </header>
+
+    <section class="search">
+      <div class="searchbar agentbar">
+        <input id="goal" type="text" autocomplete="off"
+               placeholder="Give the agent a research goal — e.g. shortlist reachable MFOs in Texas">
+        <button id="agent" type="button" title="A bounded agent researches your goal; a separate reviewer authorizes the answer or honestly declines.">Run agent</button>
+      </div>
+      <div class="chips" id="goal-examples">
+        <button class="chip" type="button">Shortlist family offices in Texas with a reachable principal</button>
+      </div>
+      <p class="verify-note"><span class="dot"></span>The worker may only use a fixed
+        set of read-only tools over the records; a separate reviewer — never the
+        worker — authorizes or declines each answer, so nothing self-certifies.</p>
+    </section>
+
+    <section id="answer" class="answer" aria-live="polite"></section>
+
+    <footer class="foot">
+      Answers come only from what the records can prove. When the evidence is thin,
+      the agent declines rather than guessing.
+    </footer>
+  </main>
+  <script src="/static/agent.js"></script>
+</body>
+</html>

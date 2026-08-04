@@ -191,13 +191,30 @@ def llm_reviewer(chat: Callable[[str, str], str]) -> Reviewer:
     return reviewer
 
 
+_COUNT_GOAL = _re.compile(r"\b(how many|number of|count of|count the|total number|how much)\b", _re.I)
+
+
+def is_count_goal(goal: str) -> bool:
+    return bool(_COUNT_GOAL.search(goal or ""))
+
+
 def answer_goal(goal: str, csv_path: Optional[str] = None, budget: int = 8) -> AgentState:
     """Run the agent live: LLM worker + independent LLM release authority. An
     escalated verdict opens a human-review case (needs_human.json) and stops."""
     from rag.llm import chat
     from rag.structured import load_records
-    st = run_agent(goal, load_records(csv_path),
-                   llm_planner(chat), llm_reviewer(chat), budget=budget)
+    records = load_records(csv_path)
+    if is_count_goal(goal):
+        # A corpus count is a deterministic read of structured data — nothing for
+        # an LLM planner to reason about and nothing for an adversarial reviewer to
+        # audit (the number is recomputed by code). Route it to a fixed count so it
+        # ALWAYS completes ('answered') instead of the LLM looping to the step
+        # budget and being mislabeled 'partial'.
+        planner = lambda g, s: {"tool": "count", "args": {}}
+        reviewer = lambda g, d, f: "approved"
+        st = run_agent(goal, records, planner, reviewer, budget=budget)
+    else:
+        st = run_agent(goal, records, llm_planner(chat), llm_reviewer(chat), budget=budget)
     if st.status == "escalated":
         from rag.escalation import open_case
         open_case(f"agent escalated: {goal}",

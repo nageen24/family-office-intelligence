@@ -1,4 +1,4 @@
-// Customer-facing logic: call /answer, render each status as its own readable card.
+// Search page (RAG): call /answer, render each status as its own readable card.
 // Speaks the customer's language — never shows field names, JSON, or errors.
 
 const qEl = document.getElementById("q");
@@ -88,65 +88,6 @@ qEl.addEventListener("keydown", e => { if (e.key === "Enter") ask(qEl.value); })
 document.getElementById("examples").addEventListener("click", e => {
   if (e.target.classList.contains("chip")) { qEl.value = e.target.textContent; ask(qEl.value); }
 });
-
-// --- S23/S24: the bounded agent, in the 5-state product language ---------------
-const STATE_COPY = {
-  answered:      "Answer released after an independent review.",
-  nothing_found: "Nothing in the corpus matches that.",
-  partial:       "Partial answer — see the scope note.",
-  declined:      "The evidence didn't support a confident answer, so the agent declined rather than guess.",
-  error:         "Momentarily unavailable — this is on our side, not your question.",
-};
-
-function renderAgent(d) {
-  const el = document.createElement("div");
-  el.className = "card " + (d.state === "answered" ? "answered" : d.state === "error" ? "error" : d.state === "nothing_found" || d.state === "declined" ? "declined" : "no_match");
-  const p = document.createElement("p");
-  p.className = "text"; p.style.whiteSpace = "pre-wrap";
-  let body = d.message || STATE_COPY[d.state] || "";
-  const out = d.output;
-  if (d.state === "answered" && out && Array.isArray(out.shortlist)) {
-    body += "\n\n" + out.shortlist.map(s =>
-      `• ${s.firm} — confidence: ${s.confidence || "?"}${s.why ? " — " + s.why : ""}`).join("\n");
-  }
-  p.textContent = body;
-  el.appendChild(p);
-  const meta = document.createElement("div");
-  meta.className = "meta";
-  const scope = document.createElement("span");
-  scope.className = "based";
-  scope.textContent = d.scope_line || "";
-  meta.appendChild(scope);
-  const badge = document.createElement("span");
-  badge.className = "badge";
-  badge.textContent = d.state === "answered" ? "✓ released by a separate authority" : "state: " + d.state;
-  meta.appendChild(badge);
-  el.appendChild(meta);
-  answerEl.replaceChildren(el);
-}
-
-async function runAgent(goal) {
-  const g = (goal || "").trim();
-  if (!g) { card("empty", "Type a research goal for the agent, then press Run agent."); goalEl.focus(); return; }
-  agentBtn.disabled = true; askBtn.disabled = true; qEl.disabled = true; goalEl.disabled = true;
-  agentBtn.textContent = "Researching…";
-  try {
-    const r = await fetch("/agent", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goal: g }),
-    });
-    renderAgent(await r.json());
-  } catch (e) {
-    renderAgent({ state: "error", scope_line: "" });
-  } finally {
-    agentBtn.disabled = false; askBtn.disabled = false; qEl.disabled = false; goalEl.disabled = false;
-    agentBtn.textContent = "Run agent";
-  }
-}
-const agentBtn = document.getElementById("agent");
-const goalEl = document.getElementById("goal");
-agentBtn.addEventListener("click", () => runAgent(goalEl.value));
-goalEl.addEventListener("keydown", e => { if (e.key === "Enter") runAgent(goalEl.value); });
 
 // honest, dynamic corpus size + type breakdown (no hard-coded number, so the
 // header stays true as the corpus grows).
