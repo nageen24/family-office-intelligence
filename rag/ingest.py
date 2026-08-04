@@ -62,15 +62,8 @@ def build_metadata(row: dict) -> dict:
 
 
 def default_csv() -> str:
-    """Serve the Stage-2 dataset once the climb has produced records; otherwise
-    fall back to the Stage-1 file so the retrieval demo never goes empty."""
-    import os
-    s2 = "data/final/dataset_stage2.csv"
-    try:
-        if os.path.exists(s2) and sum(1 for _ in open(s2, encoding="utf-8")) > 1:
-            return s2
-    except OSError:
-        pass
+    """The single delivered dataset. Stage-1 files were archived to
+    archive/stage1/, so data/final/ holds exactly one dataset."""
     return "data/final/dataset.csv"
 
 

@@ -45,7 +45,7 @@ def _write_dataset(state: dict, out_dir: str) -> int:
     firms = list(state.values())
     qualifying = [f for f in firms if f.record_status == "Qualified"]
     pd.DataFrame([f.to_flat_row() for f in qualifying]).to_csv(
-        os.path.join(out_dir, "dataset_stage2.csv"), index=False)
+        os.path.join(out_dir, "dataset.csv"), index=False)
     # full audit surface (every attempted firm, withheld values shown)
     pd.DataFrame([f.to_flat_row(audit=True) for f in firms]).to_csv(
         os.path.join(out_dir, "climb_audit.csv"), index=False)

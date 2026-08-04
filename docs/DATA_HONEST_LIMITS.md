@@ -1,7 +1,7 @@
 # Dataset: what it holds, and the honest $0 ceiling
 
 This documents, factually, what the Stage-2 dataset contains and why — so nothing
-is over-claimed. It reflects the pipeline that produces `data/final/dataset_stage2.csv`.
+is over-claimed. It reflects the pipeline that produces `data/final/dataset.csv`.
 
 ## What every DELIVERED record has proven
 

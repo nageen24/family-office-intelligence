@@ -41,7 +41,7 @@ def test_climb_once_accumulates_and_writes_dataset(tmp_path):
                          out_dir=str(tmp_path), min_interval=0, workers=2)
     assert summary["attempted_total"] == 2
     assert summary["qualified_total"] == 2
-    assert (tmp_path / "dataset_stage2.csv").exists()
+    assert (tmp_path / "dataset.csv").exists()
 
 
 def test_climb_once_is_idempotent_on_rerun(tmp_path):
