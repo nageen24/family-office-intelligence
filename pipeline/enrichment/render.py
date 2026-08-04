@@ -55,15 +55,34 @@ def _with_page(fn, timeout: int = 20000):
         return None
 
 
+_TEAM_PATHS = ("", "team", "our-team", "people", "leadership", "about")
+
+
 def render_text(url: str, max_chars: int = 9000) -> str:
-    """Rendered visible text of a page + any LinkedIn /in profile URLs it links."""
+    """Rendered text of the homepage + team pages, plus any LinkedIn /in profile
+    URLs. One browser session renders several paths; stops once LinkedIn is found
+    or enough text is gathered. domcontentloaded (+ a short settle) — networkidle
+    hangs on sites with long-poll connections."""
+    from urllib.parse import urljoin
+    base = url.rstrip("/")
+
     def _do(page):
-        page.goto(url, wait_until="networkidle")
-        body = page.inner_text("body")
-        html = page.content()
-        links = " ".join(dict.fromkeys(_LI_IN.findall(html)))
-        return (body[:max_chars] + " " + links).strip()
-    return _with_page(_do) or ""
+        texts, links = [], []
+        for suffix in _TEAM_PATHS:
+            try:
+                page.goto(urljoin(base + "/", suffix), wait_until="domcontentloaded")
+                page.wait_for_timeout(1200)          # let JS paint the team cards
+                texts.append(page.inner_text("body"))
+                links += _LI_IN.findall(page.content())
+            except Exception:
+                continue
+            if links or sum(len(t) for t in texts) >= max_chars:
+                break
+        body = " ".join(texts)[:max_chars]
+        uniq = " ".join(dict.fromkeys(links))
+        return (body + " " + uniq).strip() if uniq else body
+
+    return _with_page(_do, timeout=15000) or ""
 
 
 def find_website(firm_name: str) -> Optional[str]:

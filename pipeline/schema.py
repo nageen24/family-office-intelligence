@@ -164,6 +164,9 @@ class CandidateFirm:
             "entity_coherent": self.entity_coherent,
             "counts_toward_500": self.counts_toward_500,
             "is_commercial": self.is_commercial,
+            # buyer-facing transparency: exactly what intelligence this record holds
+            "has_investing_focus": not self.investing_thesis.is_blank(),
+            "has_recent_signal": not self.recent_signal.is_blank(),
             "website": self.website,
             "hq_location": self.hq_location,
             "corporate_linkedin": self.corporate_linkedin,
