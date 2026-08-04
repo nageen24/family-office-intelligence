@@ -1,0 +1,1 @@
+! I've found a issue, currently, system is counting those records that  have not personal email/contact/linkedin. I need real way to reach the person, so dont count such records, that hold nothing from 3. drop it. Only count who have email or contact or linkedin.  build the 500 from firms whose website shows their people.
