@@ -80,7 +80,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
                chat: Optional[Callable] = None,
                fetch: Callable[[str], str] = fetch_site_text,
                use_browser: bool = False, add_news: bool = True,
-               recheck_size: int = 15) -> dict:
+               recheck_size: int = 15, apollo_email_budget: int = 20,
+               apollo_client=None) -> dict:
     if candidates is None:
         candidates = discover_candidates()
     if chat is None:
@@ -106,6 +107,11 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         failed = {id(f) for f in ledger.failures}
         done = [f for f in todo if id(f) not in failed]
         validate_all(done)
+        # Apollo reach-recovery: fill LinkedIn/email (provider-returned, our own
+        # validation) for function-proven firms still missing a personal route,
+        # then re-validate so a recovered reach lets the record qualify.
+        if _apollo_pass(done, apollo_email_budget, apollo_client):
+            validate_all(done)
         for f in done:                       # stamp a freshly-proven source
             if f.proof_function_quote and not f.last_verified:
                 f.last_verified, f.trust = today, "fresh"
@@ -121,6 +127,30 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     summary = _summary(state, ledger, len(todo))
     summary["rechecked"] = rechecked
     return summary
+
+
+def _apollo_pass(firms, email_budget: int, client=None) -> int:
+    """Reach-recovery via Apollo for function-proven firms with no personal route.
+
+    LinkedIn is fetched for every gap firm (recovers the reach gate); the scarce
+    free-tier email credits are spent only on the strongest records, strongest
+    first. Graceful no-op when no APOLLO_API_KEY is configured."""
+    from pipeline.enrichment.apollo import ApolloClient, enrich_apollo, is_strong
+    from pipeline.validation.validate import _has_personal_reach
+    client = client or ApolloClient()
+    if not getattr(client, "key", client):      # stub clients are truthy; live needs a key
+        return 0
+    gap = [f for f in firms
+           if (f.proof_function_quote or f.sec_family_office_exemption)
+           and not _has_personal_reach(f)]
+    gap.sort(key=is_strong, reverse=True)        # best records get the email credits
+    used = 0
+    for f in gap:
+        reveal = is_strong(f) and used < email_budget
+        if reveal:
+            used += 1
+        enrich_apollo(f, client, reveal_email=reveal)
+    return len(gap)
 
 
 def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None) -> int:
@@ -144,8 +174,10 @@ def main():
     # cut the 429 failures. The browser is heavier still, so go gentler there.
     workers = 2 if use_browser else 4
     interval = float(os.getenv("CLIMB_INTERVAL", "3.0"))
+    apollo_emails = int(os.getenv("CLIMB_APOLLO_EMAILS", "20"))
     print(json.dumps(climb_once(batch_size=batch, use_browser=use_browser,
-                                workers=workers, min_interval=interval), indent=2))
+                                workers=workers, min_interval=interval,
+                                apollo_email_budget=apollo_emails), indent=2))
 
 
 if __name__ == "__main__":

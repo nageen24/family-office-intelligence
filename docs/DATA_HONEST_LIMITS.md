@@ -47,5 +47,29 @@ Family offices are private by design. Measured on live runs:
 Net: a complete, commercial-grade, reachable record is achievable for only a
 fraction of firms at $0. The dataset therefore ships the **verified records the
 public record honestly supports** — real intelligence where firms publish it,
-honest blanks where they don't — rather than a padded count. The missing
-intelligence largely exists only behind paid data providers.
+honest blanks where they don't — rather than a padded count.
+
+## Reach-finding: what was tried, and the wall (audit trail)
+
+Personal reach (the binding limit) was attacked directly before any provider was
+added. Every free path is blocked or empty from this environment:
+
+- **Static site LinkedIn** — works for only ~22% of function-proven firms (the
+  rest don't link their principals' profiles).
+- **Bing search via a real browser** — result URLs are obfuscated behind
+  redirect encoding; 0 extractable LinkedIn profiles.
+- **DuckDuckGo** — scripted requests return HTTP 202 (bot-block); via a real
+  browser (lite/, html/, duckduckgo.com/html) it serves an anomaly/bot page with
+  0 results. Blocked both ways from this IP.
+- **Full JS render** of firms' own team pages — returns content but 0 LinkedIn
+  profiles (Seneschal 9k / TFO 7.7k / Colony 4.9k chars, all zero); slow and
+  occasionally hangs.
+
+**Decision (recorded): add Apollo on the free tier as a contact-data source**,
+because the reach data exists only behind a provider. Apollo enters like any other
+source — through the pipeline, with our OWN validation (the returned profile must
+match the named person AND the current firm) and HONEST labels: a provider-returned
+value is `inferred`, never `verified`. An Apollo email counts as a personal reach
+route but does NOT count toward the 200 *verified* emails unless it also passes our
+own SMTP mailbox check. Scarce free-tier email credits are spent only on the
+strongest records; LinkedIn (which recovers the reach gate) is fetched first.
