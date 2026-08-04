@@ -96,9 +96,9 @@ def _candidate_bases(url: str) -> list[str]:
     return list(dict.fromkeys(bases))
 
 
-def _get(u: str):
+def _get(u: str, timeout: int = 8):
     try:
-        r = requests.get(u, timeout=15, allow_redirects=True,
+        r = requests.get(u, timeout=timeout, allow_redirects=True,
                          headers={"User-Agent": USER_AGENT})
     except requests.RequestException:
         return None
@@ -116,18 +116,21 @@ def fetch_site_text(url: str, max_chars: int = 9000) -> str:
     LinkedIn PROFILE URLs in the raw hrefs are appended so the contact extractor
     can see them (tag-stripping would otherwise drop them)."""
     from urllib.parse import urljoin
-    base = next((b for b in _candidate_bases(url) if _get(b)), None)
+    base = next((b for b in _candidate_bases(url) if _get(b, timeout=6)), None)
     if not base:
         return ""
     texts, links = [], []
-    for suffix in ("", "about", "about-us", "who-we-are", "team", "our-team",
-                   "people", "our-people", "leadership", "advisors", "partners",
-                   "management", "firm", "contact"):
+    ok = 0
+    # Try a handful of common pages, but stop once we have enough content or have
+    # made too many attempts — a firm with many slow/404 paths must not hang.
+    for suffix in ("", "about", "about-us", "team", "our-team", "people",
+                   "leadership", "contact"):
         r = _get(urljoin(base + "/", suffix))
         if r is not None:
             texts.append(_visible_text(r.text))
             links += _LI_IN.findall(r.text)
-        if sum(len(t) for t in texts) >= max_chars:
+            ok += 1
+        if sum(len(t) for t in texts) >= max_chars or ok >= 4:
             break
     body = " ".join(texts)[:max_chars]
     uniq = " ".join(dict.fromkeys(links))
