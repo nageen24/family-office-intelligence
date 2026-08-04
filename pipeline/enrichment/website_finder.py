@@ -82,10 +82,10 @@ def _domain(url: str) -> str:
 def find_website(firm_name: str, *, delay: float = 1.5) -> Optional[str]:
     """Return the firm's official homepage URL, or None.
 
-    Dispatcher: prefer Google Programmable Search when GOOGLE_API_KEY +
-    GOOGLE_CSE_ID are configured (a real search); otherwise fall back to the
-    DuckDuckGo scrape. Both share one cache. A None result is cached (as "") so
-    a firm with no findable site is never re-queried. Never invents a URL.
+    Resolver: keyless Wikidata P856 is the primary (and only hot-path) lookup;
+    the DuckDuckGo scrape is kept off the hot path for other environments. A None
+    result is cached (as "") so a firm with no findable site is never re-queried.
+    Never invents a URL.
     """
     key = firm_name.strip().lower()
     if key in _CACHE:
@@ -101,10 +101,9 @@ def find_website(firm_name: str, *, delay: float = 1.5) -> Optional[str]:
 
     # No site found. Cache the honest blank so we don't re-query a firm that
     # genuinely isn't resolvable (many single-family offices have no website).
-    # Google Custom Search was dropped (its abuse system IP-blocked us and its
-    # 100/day cap is fragile for a pipeline). DDG is IP-blocked here too. Both
-    # `google_search` / `_ddg_lookup` are kept for other environments but off
-    # the hot path — Wikidata is the keyless resolver we rely on.
+    # Google Custom Search was removed entirely (needs billing; not in use). DDG
+    # is IP-blocked here too, so `_ddg_lookup` is kept for other environments but
+    # off the hot path — Wikidata is the keyless resolver we rely on.
     _CACHE[key] = ""
     _save_cache(_CACHE)
     return None

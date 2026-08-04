@@ -140,8 +140,8 @@ def _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
     done = [f for f in firms if id(f) not in failed]
     validate_all(done)
     # reach-recovery for function-proven firms with no personal route: first the
-    # Google CSE LinkedIn lookup (free 100/day), then Apollo (paid). Both graceful.
-    recovered = _gcse_pass(done)
+    # Serper.dev LinkedIn lookup (keyed, capped), then Apollo (paid). Both graceful.
+    recovered = _serper_pass(done)
     recovered = _apollo_pass(done, apollo_email_budget, apollo_client) or recovered
     if recovered:
         validate_all(done)
@@ -151,19 +151,19 @@ def _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
     return done
 
 
-def _gcse_pass(firms, client=None) -> int:
-    """Find LinkedIn via Google Custom Search for function-proven firms that have a
-    named principal but no personal route. Graceful no-op without a CSE key."""
-    from pipeline.enrichment.gcse import GoogleCSE, enrich_gcse
+def _serper_pass(firms, client=None) -> int:
+    """Find LinkedIn via Serper.dev for function-proven firms that have a named
+    principal but no personal route. Graceful no-op without a Serper key."""
+    from pipeline.enrichment.serper import Serper, enrich_serper
     from pipeline.validation.validate import _has_personal_reach
-    client = client or GoogleCSE()
+    client = client or Serper()
     if hasattr(client, "enabled") and not client.enabled():
         return 0
     gap = [f for f in firms
            if (f.proof_function_quote or f.sec_family_office_exemption)
            and not _has_personal_reach(f) and not f.principal_name.is_blank()]
     for f in gap:
-        enrich_gcse(f, client)
+        enrich_serper(f, client)
     return len(gap)
 
 

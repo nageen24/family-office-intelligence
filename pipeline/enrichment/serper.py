@@ -1,13 +1,13 @@
-"""Google Custom Search (JSON API) — structured LinkedIn lookup, no scraping.
+"""Serper.dev search — structured LinkedIn lookup, no scraping.
 
-The free-search wall (Bing obfuscates, DDG/Mojeek/SearXNG block) is beaten by the
-Custom Search JSON API: a Programmable Search Engine restricted to linkedin.com/in
-returns result URLs as clean JSON. We query "name" + firm, take the /in/ profile
-URL, and verify the slug name-matches the principal — a personal reach route
-labeled `inferred` (search-found, not verified by fetching the profile).
+The free-search wall (Bing obfuscates, DDG/Mojeek/SearXNG block, Google CSE needs
+billing) is beaten by Serper.dev's Google Search API: a keyed POST returns organic
+result URLs as clean JSON. We query `site:linkedin.com/in "name" firm`, take the
+/in/ profile URL, and verify the slug name-matches the principal — a personal reach
+route labeled `inferred` (search-found, not verified by fetching the profile).
 
-Capped at the free tier's 100 queries/day (a committed daily counter shared across
-scheduled runs); graceful no-op without GOOGLE_API_KEY / GOOGLE_CSE_ID.
+A committed daily query counter guards Serper credit spend (shared across scheduled
+runs); graceful no-op without SERPER_API_KEY.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from typing import Optional
 from pipeline.schema import CandidateFirm, Cell, Epistemic, Confidence
 from pipeline.ontology import Status, RouteType
 
-QUOTA_PATH = os.path.join("data", "state", "gcse_quota.json")
+QUOTA_PATH = os.path.join("data", "state", "serper_quota.json")
 _IN = re.compile(r"linkedin\.com/in/([A-Za-z0-9\-_%]+)", re.I)
 
 
@@ -33,7 +33,7 @@ def _slug_matches(url: str, name: str) -> bool:
     return len(toks) >= 2 and toks[0] in slug and toks[-1] in slug
 
 
-# --- daily quota (free tier = 100/day) -----------------------------------------
+# --- daily query cap (spend guard for Serper credits) --------------------------
 def _load_quota(path: str) -> dict:
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
@@ -60,41 +60,41 @@ def bump_quota(path: str = QUOTA_PATH) -> None:
 
 
 def find_person_linkedin(name: str, firm: str, client) -> Optional[str]:
-    """First CSE result on a /in/ profile whose slug name-matches the principal."""
-    for url in client.search(f'"{name}" {firm}') or []:
+    """First search result on a /in/ profile whose slug name-matches the principal."""
+    for url in client.search(f'site:linkedin.com/in "{name}" {firm}') or []:
         if _slug_matches(url, name):
             return re.sub(r"\?.*$", "", url)     # drop tracking params
     return None
 
 
-def enrich_gcse(firm: CandidateFirm, client) -> CandidateFirm:
+def enrich_serper(firm: CandidateFirm, client) -> CandidateFirm:
     if firm.principal_name.is_blank() or not firm.principal_linkedin.is_blank():
         return firm
     li = find_person_linkedin(firm.principal_name.value, firm.firm_name, client)
     if li:
         firm.principal_linkedin = Cell(
-            value=li, source="Google Custom Search (linkedin.com/in)",
-            method="found via CSE restricted to linkedin.com/in; slug name-matched "
-                   "to the principal; not verified by fetching the profile",
+            value=li, source="Serper.dev (Google results, linkedin.com/in)",
+            method="found via Serper.dev Google search scoped to linkedin.com/in; "
+                   "slug name-matched to the principal; not verified by fetching "
+                   "the profile",
             epistemic=Epistemic.INFERENCE, confidence=Confidence.MEDIUM,
             status=Status.INFERRED, route=RouteType.PERSONAL)
     return firm
 
 
-class GoogleCSE:
-    """Live Custom Search JSON API client. Needs GOOGLE_API_KEY + GOOGLE_CSE_ID."""
+class Serper:
+    """Live Serper.dev Google Search client. Needs SERPER_API_KEY."""
 
-    ENDPOINT = "https://www.googleapis.com/customsearch/v1"
+    ENDPOINT = "https://google.serper.dev/search"
 
-    def __init__(self, api_key: Optional[str] = None, cse_id: Optional[str] = None,
+    def __init__(self, api_key: Optional[str] = None,
                  quota_path: str = QUOTA_PATH, daily_limit: int = 100):
-        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
-        self.cse_id = cse_id or os.getenv("GOOGLE_CSE_ID")
+        self.api_key = api_key or os.getenv("SERPER_API_KEY")
         self.quota_path = quota_path
         self.daily_limit = daily_limit
 
     def enabled(self) -> bool:
-        return bool(self.api_key and self.cse_id)
+        return bool(self.api_key)
 
     def search(self, query: str) -> list[str]:
         if not self.enabled() or not daily_quota_ok(self.quota_path, self.daily_limit):
@@ -102,10 +102,12 @@ class GoogleCSE:
         import requests
         try:
             bump_quota(self.quota_path)     # count the query against the daily cap
-            r = requests.get(self.ENDPOINT, timeout=15, params={
-                "key": self.api_key, "cx": self.cse_id, "q": query, "num": 5})
+            r = requests.post(self.ENDPOINT, timeout=15,
+                              headers={"X-API-KEY": self.api_key,
+                                       "Content-Type": "application/json"},
+                              data=json.dumps({"q": query, "num": 5}))
             if not r.ok:
                 return []
-            return [it.get("link", "") for it in r.json().get("items", [])]
+            return [it.get("link", "") for it in r.json().get("organic", [])]
         except requests.RequestException:
             return []

@@ -1,14 +1,15 @@
-"""Google Custom Search connector — structured LinkedIn lookup, no scraping.
+"""Serper.dev connector — structured LinkedIn lookup, no scraping.
 
-Queries a CSE restricted to linkedin.com/in for "name" + firm, takes the /in/
-profile URL from the JSON, and verifies the slug name-matches the principal. A
-match is a personal reach route labeled `inferred` (search-found, not verified by
-fetching the profile). Capped at 100 queries/day (free tier); graceful without a key.
+Queries Serper.dev's Google Search API scoped to linkedin.com/in for "name" + firm,
+takes the /in/ profile URL from the JSON, and verifies the slug name-matches the
+principal. A match is a personal reach route labeled `inferred` (search-found, not
+verified by fetching the profile). A daily query cap guards Serper credit spend;
+graceful without a key.
 """
 from pipeline.schema import CandidateFirm, Cell, Epistemic
 from pipeline.ontology import Status, RouteType
-from pipeline.enrichment.gcse import (find_person_linkedin, enrich_gcse,
-                                      daily_quota_ok, bump_quota, _slug_matches)
+from pipeline.enrichment.serper import (find_person_linkedin, enrich_serper,
+                                        daily_quota_ok, bump_quota, _slug_matches)
 
 
 class _Stub:
@@ -38,7 +39,7 @@ def test_find_returns_none_when_no_slug_match():
 def test_enrich_sets_personal_inferred_linkedin():
     f = CandidateFirm(firm_name="Colony Family Offices", discovery_source="SEC Form ADV")
     f.principal_name = Cell(value="Eric Ridenour", epistemic=Epistemic.FACT)
-    enrich_gcse(f, _Stub(["https://www.linkedin.com/in/eric-ridenour"]))
+    enrich_serper(f, _Stub(["https://www.linkedin.com/in/eric-ridenour"]))
     assert f.principal_linkedin.value == "https://www.linkedin.com/in/eric-ridenour"
     assert f.principal_linkedin.route is RouteType.PERSONAL
     assert f.principal_linkedin.status is Status.INFERRED     # search-found, not verified
@@ -46,7 +47,7 @@ def test_enrich_sets_personal_inferred_linkedin():
 
 def test_enrich_noop_without_a_principal_name():
     f = CandidateFirm(firm_name="Colony", discovery_source="SEC Form ADV")
-    enrich_gcse(f, _Stub(["https://www.linkedin.com/in/eric-ridenour"]))
+    enrich_serper(f, _Stub(["https://www.linkedin.com/in/eric-ridenour"]))
     assert f.principal_linkedin.is_blank()
 
 

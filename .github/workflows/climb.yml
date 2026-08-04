@@ -40,8 +40,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
           APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           CLIMB_BATCH: ${{ github.event.inputs.batch || '60' }}
           CLIMB_APOLLO_EMAILS: ${{ vars.CLIMB_APOLLO_EMAILS || '20' }}
           PYTHONPATH: ${{ github.workspace }}
