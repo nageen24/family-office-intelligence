@@ -36,7 +36,7 @@ def _cands():
 
 def test_climb_once_accumulates_and_writes_dataset(tmp_path):
     state_path = str(tmp_path / "state.json")
-    summary = climb_once(batch_size=10, candidates=_cands(), chat=_chat,
+    summary = climb_once(batch_size=10, add_news=False, candidates=_cands(), chat=_chat,
                          fetch=lambda u: PAGE, state_path=state_path,
                          out_dir=str(tmp_path), min_interval=0, workers=2)
     assert summary["attempted_total"] == 2
@@ -48,7 +48,7 @@ def test_climb_once_is_idempotent_on_rerun(tmp_path):
     state_path = str(tmp_path / "state.json")
     kw = dict(candidates=_cands(), chat=_chat, fetch=lambda u: PAGE,
               state_path=state_path, out_dir=str(tmp_path), min_interval=0, workers=2)
-    climb_once(batch_size=10, **kw)
-    second = climb_once(batch_size=10, **kw)
+    climb_once(batch_size=10, add_news=False, **kw)
+    second = climb_once(batch_size=10, add_news=False, **kw)
     assert second["processed_this_run"] == 0        # nothing left to do
     assert second["attempted_total"] == 2           # state unchanged

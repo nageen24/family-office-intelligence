@@ -31,7 +31,8 @@ def _distinctive_in(firm_name: str, text: str) -> bool:
 
 def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
                     fetch: Callable[[str], str] = fetch_site_text,
-                    ledger=None, use_browser: bool = False) -> CandidateFirm:
+                    ledger=None, use_browser: bool = False,
+                    add_news: bool = True) -> CandidateFirm:
     """Fetch the firm's own site once; capture function/type proof + contacts.
 
     With use_browser, a name-only firm (no website) gets one via a rendered search
@@ -65,6 +66,12 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
         firm.proof_function_quote = proof["function_quote"]
         firm.proof_type_quote = proof["type_quote"]
         firm.sec_family_office_exemption = proof["sec_family_office_exemption"]
+        # what they invest in — verbatim from the firm's own site (code-verified)
+        if proof.get("investing_focus"):
+            firm.investing_thesis = Cell(
+                value=proof["investing_focus"], source=firm.website,
+                method="investing focus stated on the firm's own website (verbatim)",
+                epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM)
 
     # Person-level contact — principal (code-verified on page) + scraped personal email.
     prin_llm = lambda text: chat(PRINCIPAL_SYSTEM, text)
@@ -98,6 +105,15 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
             method="person's LinkedIn linked from the firm's own site; name-matched",
             epistemic=Epistemic.INFERENCE, confidence=Confidence.MEDIUM,
             route=RouteType.PERSONAL)
+
+    # "Why now" — most recent dated news activity (entity-coherence is enforced in
+    # validation, so a wrong-firm story is quarantined, not shipped).
+    if add_news:
+        try:
+            from pipeline.enrichment.news_signal import NewsSignalEnricher
+            NewsSignalEnricher().enrich(firm)
+        except Exception:
+            pass
     return firm
 
 

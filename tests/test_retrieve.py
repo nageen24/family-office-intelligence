@@ -33,7 +33,13 @@ def test_multifamily_one_word_still_filters():
 def test_named_firm_is_injected_even_if_semantics_miss():
     # A firm named outright must reach the LLM regardless of embedding score,
     # and its presence must lift the gate so we can answer honestly about it.
-    r = retrieve("what is the email of Duquesne Family Office?")
+    # Data-agnostic: use a real firm from whichever dataset is currently served.
+    import csv
+    from rag.ingest import default_csv
+    rows = list(csv.DictReader(open(default_csv(), encoding="utf-8")))
+    assert rows, "served dataset is empty"
+    firm = rows[0]["firm_name"]
+    r = retrieve(f"what is the email of {firm}?")
     names = [h.get("firm_name") for h in r["hits"]]
-    assert any("Duquesne" in (n or "") for n in names)
+    assert any(firm.split()[0] in (n or "") for n in names)
     assert r["gated"] is False

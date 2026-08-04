@@ -79,7 +79,7 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
                candidates: Optional[List[CandidateFirm]] = None,
                chat: Optional[Callable] = None,
                fetch: Callable[[str], str] = fetch_site_text,
-               use_browser: bool = False) -> dict:
+               use_browser: bool = False, add_news: bool = True) -> dict:
     if candidates is None:
         candidates = discover_candidates()
     if chat is None:
@@ -93,7 +93,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     rl = rate_limited(chat, min_interval=min_interval, ledger=ledger)
     if todo:
         enrich_pool(todo, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
-                                                    use_browser=use_browser),
+                                                    use_browser=use_browser,
+                                                    add_news=add_news),
                     workers=workers, ledger=ledger)
         validate_all(todo)
         merge_pool(state, todo)

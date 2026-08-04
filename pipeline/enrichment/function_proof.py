@@ -36,7 +36,10 @@ SYSTEM = (
     'from the text that states it operates as a family office, else ""), '
     'type ("single"|"multi"|"unknown"), type_quote (a VERBATIM sentence proving '
     'single- vs multi-family, else ""), sec_family_office_exemption (bool: does '
-    "the text claim an SEC family-office exemption / Rule 202(a)(11)(G)-1).\n"
+    "the text claim an SEC family-office exemption / Rule 202(a)(11)(G)-1), "
+    'investing_focus (a VERBATIM sentence copied exactly from the text describing '
+    'WHAT or HOW the firm invests — asset classes, sectors, strategy, or mandate — '
+    'else "").\n'
     "Every quote MUST be copied character-for-character from the text. If nothing "
     "in the text states family-office function, set is_family_office false and "
     "leave quotes empty."
@@ -61,17 +64,21 @@ def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
     data = _parse_json(llm(page_text))
     fq = (data.get("function_quote") or "").strip()
     tq = (data.get("type_quote") or "").strip()
+    focus = (data.get("investing_focus") or "").strip()
 
     # The mechanical control: a quote counts only if it is literally on the page.
     if not (data.get("is_family_office") and fq and quote_present(page_text, fq)):
         fq = None
     if not (tq and quote_present(page_text, tq)):
         tq = None
+    if not (focus and quote_present(page_text, focus)):
+        focus = None
 
     return {
         "function_quote": fq,
         "type_quote": tq if fq else None,      # type is meaningless without function
         "sec_family_office_exemption": bool(data.get("sec_family_office_exemption")) if fq else False,
+        "investing_focus": focus if fq else None,   # focus only for a proven FO
     }
 
 
