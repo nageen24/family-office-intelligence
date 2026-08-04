@@ -2,9 +2,9 @@
   "made_on": "2026-08-04",
   "note": "Fill each 'predicted' with YOUR Day-2 prediction. `python -m pipeline.compare_predictions` fills the measurable 'actual' fields from the final artifacts and writes predictions_result.md. Leave 'actual' null; the qualitative ones (what_breaks_first, goal2_confidence) you fill by observation.",
   "predictions": {
-    "what_breaks_first": {"predicted": "<FILL: what you think breaks first>", "actual": null},
-    "cost_to_refresh_one_record_usd": {"predicted": null, "actual": null},
-    "cost_to_refresh_all_500_usd": {"predicted": null, "actual": null},
-    "goal2_confidence": {"predicted": "<FILL: your confidence on Goal 2, and where it's weakest>", "actual": null}
+    "what_breaks_first": {"predicted": "I think GROQ, SERPER keys daily limit token may end.", "actual": null},
+    "cost_to_refresh_one_record_usd": {"predicted": 0, "actual": null, "rationale": "Used free Groq LLM, so no cost. One record ~= $0 + 1-2 Serper searches."},
+    "cost_to_refresh_all_500_usd": {"predicted": 0, "actual": null, "rationale": "500 ~= free tier covers it."},
+    "goal2_confidence": {"predicted": "I expect the agent's confidence to be low because records have little investment-focus info, and it should refuse to rate firms where the type or focus isn't proven.", "actual": null}
   }
 }
