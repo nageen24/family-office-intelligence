@@ -164,11 +164,18 @@ def llm_reviewer(chat: Callable[[str, str], str]) -> Reviewer:
 
 
 def answer_goal(goal: str, csv_path: Optional[str] = None, budget: int = 8) -> AgentState:
-    """Run the agent live: LLM worker + independent LLM release authority."""
+    """Run the agent live: LLM worker + independent LLM release authority. An
+    escalated verdict opens a human-review case (needs_human.json) and stops."""
     from rag.llm import chat
     from rag.structured import load_records
-    return run_agent(goal, load_records(csv_path),
-                     llm_planner(chat), llm_reviewer(chat), budget=budget)
+    st = run_agent(goal, load_records(csv_path),
+                   llm_planner(chat), llm_reviewer(chat), budget=budget)
+    if st.status == "escalated":
+        from rag.escalation import open_case
+        open_case(f"agent escalated: {goal}",
+                  {"goal": goal, "draft": st.draft, "findings": len(st.findings)},
+                  options=["approve as-is", "revise", "reject"])
+    return st
 
 
 def save_agent(path: str, st: AgentState) -> None:
