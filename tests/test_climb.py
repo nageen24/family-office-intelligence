@@ -9,7 +9,8 @@ from pipeline.schema import CandidateFirm, Cell, Epistemic
 from pipeline.climb import climb_once
 
 PAGE = ("About Cedar Family Office. We are a multi-family office serving several "
-        "families. Jane Cedar, Managing Partner. Email jane.cedar@cedarfo.com.")
+        "families. Jane Cedar, Managing Partner. Email jane.cedar@cedarfo.com. "
+        "Jane on LinkedIn: https://www.linkedin.com/in/jane-cedar")
 
 
 def _chat(system, user):

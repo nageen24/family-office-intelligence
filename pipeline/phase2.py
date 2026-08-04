@@ -17,7 +17,7 @@ from pipeline.ontology import email_route, RouteType
 from pipeline.enrichment.function_proof import (
     fetch_site_text, extract_function_proof, SYSTEM as FUNCTION_SYSTEM)
 from pipeline.enrichment.contacts import (
-    extract_principal, same_domain_emails, PRINCIPAL_SYSTEM)
+    extract_principal, same_domain_emails, extract_person_linkedin, PRINCIPAL_SYSTEM)
 
 Chat2 = Callable[[str, str], str]     # (system, user) -> content
 
@@ -63,8 +63,18 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
             firm.principal_email = Cell(
                 value=e, source=firm.website,
                 method="scraped from the firm's own site; name-matched to principal",
-                epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM)
+                epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM,
+                route=RouteType.PERSONAL)
             break
+
+    # The person's own LinkedIn — a real personal route when no email is published.
+    li = extract_person_linkedin(page, principal_name)
+    if li:
+        firm.principal_linkedin = Cell(
+            value=li, source=firm.website,
+            method="person's LinkedIn linked from the firm's own site; name-matched",
+            epistemic=Epistemic.INFERENCE, confidence=Confidence.MEDIUM,
+            route=RouteType.PERSONAL)
     return firm
 
 

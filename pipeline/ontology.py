@@ -154,13 +154,21 @@ def counts_as_personal_gate(status: Status, route: RouteType) -> bool:
 # --- S3: the two floors --------------------------------------------------------
 def meets_inclusion_floor(category: FirmCategory, exists: bool,
                           function_proven: bool, entity_coherent: bool,
-                          beyond_seed_cells: int) -> bool:
-    """Truth floor to count toward the 500 (S3)."""
+                          beyond_seed_cells: int,
+                          has_personal_reach: bool) -> bool:
+    """Truth floor to count toward the 500 (S3).
+
+    has_personal_reach (user tightening): a record counts only if it exposes a
+    real way to reach the NAMED person — their own email, own direct phone, or own
+    LinkedIn. A firm switchboard or an info@ inbox is not a personal route, so a
+    firm with only function proof and no reachable person does NOT count.
+    """
     return (counts_toward_500(category)
             and exists
             and function_proven
             and entity_coherent
-            and beyond_seed_cells >= 1)
+            and beyond_seed_cells >= 1
+            and has_personal_reach)
 
 
 def meets_commercial_standard(has_decision_maker: bool,

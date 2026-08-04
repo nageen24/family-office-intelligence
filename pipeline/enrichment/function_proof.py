@@ -75,21 +75,33 @@ def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
     }
 
 
+_LI_IN = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+", re.I)
+
+
 def fetch_site_text(url: str, max_chars: int = 9000) -> str:
-    """Homepage + one about-style page, stripped to visible text."""
+    """Homepage + team/about pages, stripped to visible text.
+
+    Team pages are included (that is where a firm 'shows its people'), and any
+    LinkedIn PROFILE URLs found in the raw HTML hrefs are appended to the text so
+    the contact extractor can see them (stripping tags would otherwise drop them).
+    """
     from urllib.parse import urljoin
-    texts = []
-    for suffix in ("", "about", "about-us", "who-we-are", "firm"):
+    texts, links = [], []
+    for suffix in ("", "about", "about-us", "who-we-are", "team", "our-team",
+                   "people", "firm"):
         try:
             r = requests.get(urljoin(url + "/", suffix), timeout=20,
                              headers={"User-Agent": USER_AGENT})
             if r.status_code == 200 and "text/html" in r.headers.get("content-type", ""):
                 texts.append(_visible_text(r.text))
+                links += _LI_IN.findall(r.text)
         except requests.RequestException:
             continue
         if sum(len(t) for t in texts) >= max_chars:
             break
-    return " ".join(texts)[:max_chars]
+    body = " ".join(texts)[:max_chars]
+    uniq = " ".join(dict.fromkeys(links))
+    return (body + " " + uniq).strip() if uniq else body
 
 
 def _visible_text(html: str) -> str:

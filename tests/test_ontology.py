@@ -101,31 +101,37 @@ def test_personal_gate_needs_both_verified_and_personal():
 
 
 # --- S3: inclusion floor ------------------------------------------------------
-def test_inclusion_floor_requires_all_four():
+def test_inclusion_floor_requires_all_conditions():
     assert meets_inclusion_floor(FirmCategory.FO_TYPE_UNKNOWN, exists=True,
                                  function_proven=True, entity_coherent=True,
-                                 beyond_seed_cells=1)
+                                 beyond_seed_cells=1, has_personal_reach=True)
+
+
+def test_inclusion_floor_fails_without_personal_reach():
+    assert not meets_inclusion_floor(FirmCategory.MFO, exists=True,
+                                     function_proven=True, entity_coherent=True,
+                                     beyond_seed_cells=2, has_personal_reach=False)
 
 
 def test_inclusion_floor_fails_without_beyond_seed_cell():
     assert not meets_inclusion_floor(FirmCategory.SFO, exists=True,
                                      function_proven=True, entity_coherent=True,
-                                     beyond_seed_cells=0)
+                                     beyond_seed_cells=0, has_personal_reach=True)
 
 
 def test_inclusion_floor_fails_for_noncounting_category():
     assert not meets_inclusion_floor(FirmCategory.UNRESOLVED_QUARANTINE, exists=True,
                                      function_proven=True, entity_coherent=True,
-                                     beyond_seed_cells=3)
+                                     beyond_seed_cells=3, has_personal_reach=True)
 
 
 def test_inclusion_floor_fails_without_function_or_coherence():
     assert not meets_inclusion_floor(FirmCategory.MFO, exists=True,
                                      function_proven=False, entity_coherent=True,
-                                     beyond_seed_cells=2)
+                                     beyond_seed_cells=2, has_personal_reach=True)
     assert not meets_inclusion_floor(FirmCategory.MFO, exists=True,
                                      function_proven=True, entity_coherent=False,
-                                     beyond_seed_cells=2)
+                                     beyond_seed_cells=2, has_personal_reach=True)
 
 
 # --- S3: commercial standard --------------------------------------------------

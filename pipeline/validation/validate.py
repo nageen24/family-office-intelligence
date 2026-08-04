@@ -25,7 +25,7 @@ from typing import List, Tuple
 import dns.resolver
 
 from pipeline.schema import (CandidateFirm, Cell, Confidence, Epistemic)
-from pipeline.ontology import (Status, email_status, counts_toward_500,
+from pipeline.ontology import (Status, RouteType, email_status, counts_toward_500,
                                meets_inclusion_floor, meets_commercial_standard)
 from pipeline.validation.entity import resolve_entity
 from pipeline.validation.relabel import relabel_record
@@ -136,6 +136,18 @@ def reachability(firm: CandidateFirm) -> int:
     return min(score, 100)
 
 
+def _has_personal_reach(firm: CandidateFirm) -> bool:
+    """A named principal PLUS >=1 route that reaches THAT person: their own email,
+    own direct phone, or own LinkedIn. Firm/switchboard phones and info@ inboxes
+    (route firm-level) never count (user decision)."""
+    if firm.principal_name.is_blank():
+        return False
+    for cell in (firm.principal_email, firm.principal_phone, firm.principal_linkedin):
+        if not cell.is_blank() and cell.route is RouteType.PERSONAL:
+            return True
+    return False
+
+
 def _beyond_seed_count(firm: CandidateFirm) -> int:
     """Non-blank, non-quarantined cells obtained BEYOND the discovery source.
 
@@ -191,7 +203,8 @@ def validate_all(pool: List[CandidateFirm], min_score: int = 20) -> List[Candida
         firm.counts_toward_500 = meets_inclusion_floor(
             firm.category, exists=exists, function_proven=function_proven,
             entity_coherent=bool(firm.entity_coherent),
-            beyond_seed_cells=_beyond_seed_count(firm))
+            beyond_seed_cells=_beyond_seed_count(firm),
+            has_personal_reach=_has_personal_reach(firm))
 
         # S3 commercial standard (the worth-buying tier; a flag, not a gate).
         firm.is_commercial = meets_commercial_standard(

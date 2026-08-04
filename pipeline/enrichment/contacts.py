@@ -24,6 +24,8 @@ LlmFn = Callable[[str], str]
 FetchFn = Callable[[str], str]
 
 _EMAIL = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+_LINKEDIN_IN = re.compile(
+    r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+", re.I)
 _PLACEHOLDER = ("user@", "name@", "email@", "firstname", "lastname", "example.",
                 "domain.com", "yourdomain", "sentry", "wixpress", "godaddy",
                 "@2x", "@sentry")
@@ -55,6 +57,24 @@ def same_domain_emails(text: str, site_url: str) -> List[str]:
         if el not in out:
             out.append(el)
     return out
+
+
+def extract_person_linkedin(text: str, principal_name: str) -> Optional[str]:
+    """A LinkedIn PROFILE (/in/) whose slug name-matches the listed principal.
+
+    Company pages (/company/) are never a personal route. The slug must contain
+    the principal's first- and last-name tokens, so a different person's profile
+    on the page is not attributed to our principal."""
+    tokens = [t for t in re.split(r"[^a-z]+", (principal_name or "").lower())
+              if len(t) >= 3]
+    if len(tokens) < 2:
+        return None
+    first, last = tokens[0], tokens[-1]
+    for url in _LINKEDIN_IN.findall(text or ""):
+        slug = url.rsplit("/in/", 1)[1].lower()
+        if first in slug and last in slug:
+            return url
+    return None
 
 
 def extract_principal(page_text: str, llm: LlmFn) -> Optional[dict]:
@@ -93,6 +113,17 @@ def enrich_contacts(firm: CandidateFirm, llm: LlmFn,
             firm.principal_email = Cell(
                 value=e, source=firm.website,
                 method="scraped from the firm's own site; name-matched to principal",
-                epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM)
+                epistemic=Epistemic.FACT, confidence=Confidence.MEDIUM,
+                route=RouteType.PERSONAL)
             break
+
+    # The person's own LinkedIn profile, linked from the firm's site — a real
+    # personal route even when no personal email is published.
+    li = extract_person_linkedin(page, principal_name)
+    if li:
+        firm.principal_linkedin = Cell(
+            value=li, source=firm.website,
+            method="person's LinkedIn linked from the firm's own site; name-matched",
+            epistemic=Epistemic.INFERENCE, confidence=Confidence.MEDIUM,
+            route=RouteType.PERSONAL)
     return firm
