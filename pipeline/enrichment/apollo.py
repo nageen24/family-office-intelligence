@@ -126,12 +126,20 @@ class ApolloClient:
 
     def __init__(self, key: Optional[str] = None):
         self.key = key or os.getenv("APOLLO_API_KEY")
+        self._blocked = False        # set once a plan-level 403 is seen (free tier)
 
     def __call__(self, kind: str, **params) -> Optional[dict]:
-        if not self.key:
+        if not self.key or self._blocked:
             return None
         import requests
         headers = {"X-Api-Key": self.key, "Content-Type": "application/json"}
+
+        def _check(resp):
+            # a free-plan 403 means the People API is paid-only: stop trying for
+            # the rest of the run instead of burning a call per firm.
+            if resp.status_code == 403 and "API_INACCESSIBLE" in resp.text:
+                self._blocked = True
+            return resp
         try:
             if kind == "match":
                 body = {"first_name": params.get("first_name"),
@@ -139,16 +147,16 @@ class ApolloClient:
                         "organization_name": params.get("organization_name"),
                         "domain": params.get("domain"),
                         "reveal_personal_emails": bool(params.get("reveal_email"))}
-                r = requests.post(f"{self.BASE}/people/match", json=body,
-                                  headers=headers, timeout=20)
+                r = _check(requests.post(f"{self.BASE}/people/match", json=body,
+                                         headers=headers, timeout=20))
                 return (r.json() or {}).get("person") if r.ok else None
             # kind == "search": senior person at the firm
             body = {"q_organization_domains": params.get("domain") or "",
                     "organization_names": [params.get("organization_name") or ""],
                     "person_seniorities": ["owner", "founder", "c_suite", "partner"],
                     "per_page": 1}
-            r = requests.post(f"{self.BASE}/mixed_people/search", json=body,
-                              headers=headers, timeout=20)
+            r = _check(requests.post(f"{self.BASE}/mixed_people/search", json=body,
+                                     headers=headers, timeout=20))
             people = (r.json() or {}).get("people") if r.ok else None
             return people[0] if people else None
         except requests.RequestException:

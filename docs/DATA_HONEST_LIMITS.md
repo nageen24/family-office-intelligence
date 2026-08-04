@@ -73,3 +73,15 @@ value is `inferred`, never `verified`. An Apollo email counts as a personal reac
 route but does NOT count toward the 200 *verified* emails unless it also passes our
 own SMTP mailbox check. Scarce free-tier email credits are spent only on the
 strongest records; LinkedIn (which recovers the reach gate) is fetched first.
+
+**Apollo free-tier result (tested live, recorded):** Apollo's People API is
+**paid-only**. All three people endpoints return `403 API_INACCESSIBLE` on the free
+plan — `people/match`, `mixed_people/search`, `people/search`
+("*not included in your Free plan… all paid plans include full API access*"). So
+Apollo cannot fill reach at $0. The integration (`pipeline/enrichment/apollo.py`) is
+built, tested, and ready — own name+firm validation, honest `inferred` labels,
+email-credit discipline — and activates the moment a PAID Apollo key is supplied;
+it is a graceful no-op otherwise. No free contact-data API examined provides enough
+to move the ~22% reach wall (Hunter's free plan is ~25 lookups/mo, negligible).
+**Conclusion: reaching 500-with-reach requires a paid data plan; at strict $0 the
+honest ceiling stands at ~130–250 genuinely-reachable records.**
