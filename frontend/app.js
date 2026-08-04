@@ -13,7 +13,7 @@ const COPY = {
 
 // The real second-model (LLM-2 validator) outcome, shown — not asserted.
 const VERDICT_BADGE = {
-  approved: "✓ Second AI verified — every claim checks out against the records",
+  approved: "A second AI checks each answer against the records before you see it.",
   refined:  "✎ Second AI corrected this — trimmed to only what the records support",
   declined: "⦸ Second AI held this back — the records didn't fully support it",
 };
@@ -148,11 +148,18 @@ const goalEl = document.getElementById("goal");
 agentBtn.addEventListener("click", () => runAgent(goalEl.value));
 goalEl.addEventListener("keydown", e => { if (e.key === "Enter") runAgent(goalEl.value); });
 
-// honest, dynamic corpus size (no hard-coded number)
-fetch("/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+// honest, dynamic corpus size + type breakdown (no hard-coded number, so the
+// header stays true as the corpus grows).
+fetch("/corpus")
   .then(r => r.json())
   .then(d => {
-    const n = d && d.scope && d.scope.eligible;
-    if (n != null) document.getElementById("corpus-count").textContent =
-      `${n} verified family office${n === 1 ? "" : "s"}`;
+    if (!d || d.total == null) return;
+    document.getElementById("corpus-count").textContent =
+      `${d.total} family-office record${d.total === 1 ? "" : "s"}`;
+    const parts = [];
+    if (d.mfo) parts.push(`${d.mfo} ${d.mfo === 1 ? "is a confirmed multi-family office" : "are confirmed multi-family offices"}`);
+    if (d.sfo) parts.push(`${d.sfo} ${d.sfo === 1 ? "is a confirmed single-family office" : "are confirmed single-family offices"}`);
+    if (d.unconfirmed) parts.push(`${d.unconfirmed} ${d.unconfirmed === 1 ? "has" : "have"} unconfirmed type`);
+    document.getElementById("type-breakdown").textContent =
+      parts.length ? "; " + parts.join(", ") : "";
   }).catch(() => {});

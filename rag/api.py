@@ -43,6 +43,16 @@ def health():
     return {"ok": True}
 
 
+@app.get("/corpus")
+def corpus():
+    """Live corpus size + firm-type breakdown for the header (no hard-coded numbers)."""
+    from collections import Counter
+    recs = load_records()
+    c = Counter((r.get("firm_type") or "Unconfirmed") for r in recs)
+    return {"total": len(recs), "mfo": c.get("MFO", 0),
+            "sfo": c.get("SFO", 0), "unconfirmed": c.get("Unconfirmed", 0)}
+
+
 @app.post("/answer")
 def answer_endpoint(q: Query):
     try:
