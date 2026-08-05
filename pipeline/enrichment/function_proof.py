@@ -60,21 +60,31 @@ def _parse_json(raw: str) -> dict:
 
 
 def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
-    """Return only quotes the model produced AND code verified against the page."""
+    """Return only quotes the model produced AND code verified against the page.
+
+    `no_proof_reason` says WHY no function quote survived (None on success):
+    llm-response-unparseable / no-proof-language-found / quote-not-verbatim.
+    """
     data = _parse_json(llm(page_text))
     fq = (data.get("function_quote") or "").strip()
     tq = (data.get("type_quote") or "").strip()
     focus = (data.get("investing_focus") or "").strip()
 
     # The mechanical control: a quote counts only if it is literally on the page.
-    if not (data.get("is_family_office") and fq and quote_present(page_text, fq)):
-        fq = None
+    no_proof_reason = None
+    if not data:
+        fq, no_proof_reason = None, "llm-response-unparseable"
+    elif not (data.get("is_family_office") and fq):
+        fq, no_proof_reason = None, "no-proof-language-found"
+    elif not quote_present(page_text, fq):
+        fq, no_proof_reason = None, "quote-not-verbatim"
     if not (tq and quote_present(page_text, tq)):
         tq = None
     if not (focus and quote_present(page_text, focus)):
         focus = None
 
     return {
+        "no_proof_reason": no_proof_reason,
         "function_quote": fq,
         "type_quote": tq if fq else None,      # type is meaningless without function
         "sec_family_office_exemption": bool(data.get("sec_family_office_exemption")) if fq else False,

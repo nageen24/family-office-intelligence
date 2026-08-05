@@ -48,6 +48,7 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
             firm.proof_exists = (firm.proof_exists or
                                  f"website found + name-verified via browser search: {cand}")
     if not firm.website:
+        firm.fail_reason = "no-website"
         return firm
     page = fetch(firm.website)
     if ledger:
@@ -58,6 +59,7 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
         if rendered:
             page = f"{page} {rendered}"[:12000] if page else rendered
     if not page:
+        firm.fail_reason = "fetch-error"
         return firm
 
     # Cap the text sent to the LLM to control tokens-per-minute against the free
@@ -68,7 +70,14 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
 
     # Proof B/C — function + type, each quote code-verified against the page.
     fn_llm = lambda text: chat(FUNCTION_SYSTEM, text)
-    proof = extract_function_proof(llm_page, fn_llm)
+    try:
+        proof = extract_function_proof(llm_page, fn_llm)
+    except Exception as e:
+        # chat() exhausted its retries — record why THIS firm failed before the
+        # exception reaches the pool's fault isolation (firm retried next run).
+        firm.fail_reason = f"llm-error: {type(e).__name__}: {str(e)[:80]}"
+        raise
+    firm.fail_reason = proof["no_proof_reason"]
     if proof["function_quote"]:
         firm.proof_function_source = firm.website
         firm.proof_function_quote = proof["function_quote"]

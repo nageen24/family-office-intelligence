@@ -86,7 +86,13 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         candidates = discover_candidates()
     if chat is None:
         from rag.llm import chat as _chat
-        chat = _chat
+        # Bulk extraction runs on a SMALL Groq model: rate limits are per model,
+        # so the 70b's 100k tokens-per-day cap (the cause of the mass llm-error
+        # failures) doesn't apply — 8b-instant has its own, larger daily budget.
+        # Honesty is unaffected: quote_present still code-verifies every quote,
+        # so a weaker model can only miss proofs, never fake them.
+        model = os.getenv("CLIMB_MODEL", "llama-3.1-8b-instant")
+        chat = lambda system, user: _chat(system, user, model=model)
 
     state = load_state(state_path)
     todo = unattempted(candidates, state)[:batch_size]
@@ -111,6 +117,7 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     # Self-replenishing quarantine loop: for every qualifying record the recheck
     # demoted, promote the next un-attempted candidate to hold the count.
     replenished = 0
+    repl: List[CandidateFirm] = []
     if demoted:
         repl = unattempted(candidates, state)[:demoted]
         if repl:
@@ -125,17 +132,41 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     _write_dataset(state, out_dir)
     summary = _summary(state, ledger, len(todo))
     summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished)
+    # per-firm failure breakdown — the audit trail for the proof leak: why each
+    # attempted firm produced no function proof (this run, and state-wide).
+    attempted = todo + repl
+    summary["fail_reasons_this_run"] = _reason_counts(attempted)
+    summary["fail_reasons_state"] = _reason_counts(
+        [f for f in state.values() if not f.proof_function_quote])
     return summary
+
+
+def _reason_counts(firms) -> dict:
+    counts: dict = {}
+    for f in firms:
+        r = getattr(f, "fail_reason", None)
+        if r:
+            # group llm-errors by exception type but keep that type visible
+            r = ":".join(r.split(":")[:2]) if r.startswith("llm-error") else r
+            counts[r] = counts.get(r, 0) + 1
+    return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
 
 
 def _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
                    apollo_email_budget, apollo_client, workers, today):
     """Enrich -> validate -> Apollo-recover -> stamp one batch; return the firms
     that completed (a firm that threw is left out to retry next run)."""
-    enrich_pool(firms, lambda f: enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
-                                                 use_browser=use_browser,
-                                                 add_news=add_news),
-                workers=workers, ledger=ledger)
+    def _enrich(f):
+        try:
+            enrich_one_firm(f, rl, fetch=fetch, ledger=ledger,
+                            use_browser=use_browser, add_news=add_news)
+        except Exception as e:
+            # stamp WHY before the pool's fault isolation swallows the exception,
+            # so the run summary can show a per-firm failure breakdown
+            if not (f.fail_reason or "").startswith("llm-error"):
+                f.fail_reason = f"llm-error: {type(e).__name__}: {str(e)[:80]}"
+            raise
+    enrich_pool(firms, _enrich, workers=workers, ledger=ledger)
     failed = {id(f) for f in ledger.failures}
     done = [f for f in firms if id(f) not in failed]
     validate_all(done)
@@ -213,10 +244,12 @@ def main():
     import json
     batch = int(os.getenv("CLIMB_BATCH", "60"))
     use_browser = os.getenv("CLIMB_BROWSER", "").lower() in ("1", "true", "yes")
-    # Groq free tier is ~30 req/min; 4 workers spaced 3s apart stays under it and
-    # cut the 429 failures. The browser is heavier still, so go gentler there.
-    workers = 2 if use_browser else 4
-    interval = float(os.getenv("CLIMB_INTERVAL", "3.0"))
+    # Pacing is token-bound, not request-bound: 8b-instant allows 6k tokens/min
+    # PER KEY and a call is ~1.9k tokens. 10s spacing = 6 calls/min ≈ 11.4k
+    # tokens/min, split across both keys by the round-robin ≈ 5.7k/key — under
+    # the cap with a little headroom for retries.
+    workers = 2
+    interval = float(os.getenv("CLIMB_INTERVAL", "10.0"))
     apollo_emails = int(os.getenv("CLIMB_APOLLO_EMAILS", "20"))
     print(json.dumps(climb_once(batch_size=batch, use_browser=use_browser,
                                 workers=workers, min_interval=interval,

@@ -45,12 +45,13 @@ def _configured() -> List[tuple]:
 _TIMEOUT = 18
 
 
-def _call(provider: tuple, system: str, user: str, temperature: float) -> str:
-    name, endpoint, env, model = provider
+def _call(provider: tuple, system: str, user: str, temperature: float,
+          model: Optional[str] = None) -> str:
+    name, endpoint, env, default_model = provider
     r = requests.post(
         endpoint,
         headers={"Authorization": f"Bearer {os.getenv(env)}"},
-        json={"model": model, "temperature": temperature,
+        json={"model": model or default_model, "temperature": temperature,
               "messages": [{"role": "system", "content": system},
                            {"role": "user", "content": user}]},
         timeout=_TIMEOUT,
@@ -59,14 +60,28 @@ def _call(provider: tuple, system: str, user: str, temperature: float) -> str:
     return r.json()["choices"][0]["message"]["content"].strip()
 
 
-def chat(system: str, user: str, temperature: float = 0.0) -> str:
+# Groq rate limits (TPM and TPD) are PER KEY, so alternating which key takes the
+# next call doubles the usable budget instead of exhausting key 1 first and
+# paying a failed round-trip on every overflow call. Failover is unchanged: the
+# other key is still tried when the first one errors.
+_rr_lock = __import__("threading").Lock()
+_rr = [0]
+
+
+def chat(system: str, user: str, temperature: float = 0.0,
+         model: Optional[str] = None) -> str:
+    """`model` overrides each provider's default (e.g. a smaller model for bulk
+    extraction, whose per-model daily token budget is separate)."""
     providers = _configured()
     if not providers:
         raise RuntimeError("No LLM provider key set (GROQ_API_KEY / GROQ_API_KEY_2)")
+    with _rr_lock:
+        start = _rr[0] % len(providers)
+        _rr[0] += 1
     last: Optional[Exception] = None
-    for provider in providers:  # try each once; the next provider is the fallback
+    for provider in providers[start:] + providers[:start]:  # next key first, rest = fallback
         try:
-            return _call(provider, system, user, temperature)
+            return _call(provider, system, user, temperature, model)
         except Exception as e:
             last = e
     raise last
