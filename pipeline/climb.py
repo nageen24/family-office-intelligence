@@ -87,8 +87,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     if chat is None:
         from rag.llm import chat as _chat
         # Bulk extraction runs on each provider's SMALL model and round-robins
-        # across all configured free providers (Groq x2 / Cerebras / NVIDIA /
-        # Gemini). Rate limits are per provider AND per model, so this both
+        # across all configured free providers (Groq x2 / Cerebras / Gemini).
+        # Rate limits are per provider AND per model, so this both
         # dodges any single model's daily cap (the 70b 100k-TPD leak) and ADDS
         # the providers' daily budgets together. Honesty is unaffected:
         # quote_present code-verifies every quote, so a weaker/other model can

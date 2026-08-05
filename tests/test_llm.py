@@ -6,7 +6,7 @@ from rag import llm
 def _both_keys(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "g1")
     monkeypatch.setenv("GROQ_API_KEY_2", "g2")
-    for e in ("CEREBRAS_API_KEY", "NVIDIA_API_KEY", "GEMINI_API_KEY"):
+    for e in ("CEREBRAS_API_KEY", "GEMINI_API_KEY"):
         monkeypatch.delenv(e, raising=False)
 
 
@@ -44,15 +44,15 @@ def test_round_robin_alternates_and_passes_small_tier(monkeypatch):
 
 def test_round_robin_spans_all_configured_providers(monkeypatch):
     _both_keys(monkeypatch)
-    for e in ("CEREBRAS_API_KEY", "NVIDIA_API_KEY", "GEMINI_API_KEY"):
+    for e in ("CEREBRAS_API_KEY", "GEMINI_API_KEY"):
         monkeypatch.setenv(e, "k")
     monkeypatch.setattr(llm, "_rr", [0])
     seen = []
     monkeypatch.setattr(llm, "_call",
                         lambda p, *a, **k: seen.append(p["name"]) or "ok")
-    for _ in range(5):
+    for _ in range(4):
         llm.chat("s", "u", small=True)
-    assert seen == ["groq", "groq-2", "cerebras", "nvidia", "gemini"]
+    assert seen == ["groq", "groq-2", "cerebras", "gemini"]
 
 
 def test_small_tier_selects_each_providers_own_small_model(monkeypatch):
@@ -100,7 +100,7 @@ def test_raises_only_when_all_providers_fail(monkeypatch):
 
 def test_no_keys_raises(monkeypatch):
     for e in ("GROQ_API_KEY", "GROQ_API_KEY_2", "CEREBRAS_API_KEY",
-              "NVIDIA_API_KEY", "GEMINI_API_KEY"):
+              "GEMINI_API_KEY"):
         monkeypatch.delenv(e, raising=False)
     with pytest.raises(RuntimeError):
         llm.chat("s", "u")

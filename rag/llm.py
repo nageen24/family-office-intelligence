@@ -5,7 +5,6 @@ bulk extraction (`small=True`). Every configured free provider takes turns:
 
   - groq / groq-2   two independent Groq accounts (llama-3.3-70b / -3.1-8b)
   - cerebras        Cerebras Cloud (OpenAI-compatible, high free daily limits)
-  - nvidia          NVIDIA NIM (OpenAI-compatible, integrate.api.nvidia.com)
   - gemini          Google Gemini free tier (its OWN request/response shape)
 
 Rate limits (TPM and TPD) are PER PROVIDER, so round-robining the next call across
@@ -32,7 +31,6 @@ load_dotenv()
 
 GROQ = "https://api.groq.com/openai/v1/chat/completions"
 CEREBRAS = "https://api.cerebras.ai/v1/chat/completions"
-NVIDIA = "https://integrate.api.nvidia.com/v1/chat/completions"
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
 
 # Each provider: kind decides the request/response shape ("openai" vs "gemini");
@@ -46,8 +44,6 @@ PROVIDERS = [
      "big": "llama-3.3-70b-versatile", "small": "llama-3.1-8b-instant"},
     {"name": "cerebras", "kind": "openai", "endpoint": CEREBRAS,
      "env": "CEREBRAS_API_KEY", "big": "llama-3.3-70b", "small": "llama3.1-8b"},
-    {"name": "nvidia", "kind": "openai", "endpoint": NVIDIA, "env": "NVIDIA_API_KEY",
-     "big": "meta/llama-3.3-70b-instruct", "small": "meta/llama-3.1-8b-instruct"},
     {"name": "gemini", "kind": "gemini", "endpoint": GEMINI, "env": "GEMINI_API_KEY",
      "big": "gemini-2.0-flash", "small": "gemini-2.0-flash-lite"},
 ]
@@ -133,8 +129,7 @@ def chat(system: str, user: str, temperature: float = 0.0,
     providers = _configured()
     if not providers:
         raise RuntimeError("No LLM provider key set "
-                           "(GROQ_API_KEY / CEREBRAS_API_KEY / NVIDIA_API_KEY / "
-                           "GEMINI_API_KEY)")
+                           "(GROQ_API_KEY / CEREBRAS_API_KEY / GEMINI_API_KEY)")
     with _rr_lock:
         start = _rr[0] % len(providers)
         _rr[0] += 1
