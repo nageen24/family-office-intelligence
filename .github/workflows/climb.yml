@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
     inputs:
       batch:
-        description: firms to process this run
-        default: "60"
+        description: firms this run (blank = provider-scaled default)
+        default: ""
   schedule:
     - cron: "0 */3 * * *"        # every 3 hours
 
@@ -52,7 +52,8 @@ jobs:
           HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
           SNOV_CLIENT_ID: ${{ secrets.SNOV_CLIENT_ID }}
           SNOV_CLIENT_SECRET: ${{ secrets.SNOV_CLIENT_SECRET }}
-          CLIMB_BATCH: ${{ github.event.inputs.batch || '60' }}
+          # empty on a scheduled run -> the climb uses its provider-scaled default
+          CLIMB_BATCH: ${{ github.event.inputs.batch }}
           CLIMB_APOLLO_EMAILS: ${{ vars.CLIMB_APOLLO_EMAILS || '20' }}
           CLIMB_BROWSER: ${{ vars.CLIMB_BROWSER || '1' }}
           PYTHONPATH: ${{ github.workspace }}

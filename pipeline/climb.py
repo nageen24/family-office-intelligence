@@ -292,17 +292,39 @@ def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None):
     return len(targets), demoted, catches
 
 
+def _run_settings(n: int, use_browser: bool) -> tuple[int, float, int]:
+    """(batch, interval, workers) scaled to the number of configured LLM providers.
+
+    Daily token budget (TPD) is PER PROVIDER, so total daily throughput scales
+    ~linearly with provider count. Each free small-model tier is ~500k TPD; a firm
+    costs ~3.4k tokens (~1.8 calls) => ~150 firms/day/provider, over 8 scheduled
+    runs/day = ~18 firms/run/provider. Global call spacing must keep EACH provider
+    under its ~6k TPM once calls are split n ways: (60/interval)*2k/n < 6k =>
+    interval > 20/n. LLM calls are globally serialised, so workers only overlap
+    fetch/browser I/O with the LLM wait; chromium is memory-heavy, so stay modest."""
+    n = max(n, 1)
+    batch = min(120, max(35, 18 * n))
+    interval = min(10.0, max(4.0, 20.0 / n))
+    workers = 3 if use_browser else 6
+    return batch, interval, workers
+
+
 def main():
     import json
-    batch = int(os.getenv("CLIMB_BATCH", "60"))
+    from rag.llm import provider_count
+    n = provider_count()                         # configured free LLM providers
     use_browser = os.getenv("CLIMB_BROWSER", "").lower() in ("1", "true", "yes")
-    # Pacing is token-bound, not request-bound: 8b-instant allows 6k tokens/min
-    # PER KEY and a call is ~1.9k tokens. 10s spacing = 6 calls/min ≈ 11.4k
-    # tokens/min, split across both keys by the round-robin ≈ 5.7k/key — under
-    # the cap with a little headroom for retries.
-    workers = 2
-    interval = float(os.getenv("CLIMB_INTERVAL", "10.0"))
+    d_batch, d_interval, d_workers = _run_settings(n, use_browser)
+
+    # env overrides; an empty CLIMB_BATCH (as a scheduled run passes) falls back
+    # to the provider-scaled default.
+    _b = (os.getenv("CLIMB_BATCH") or "").strip()
+    batch = int(_b) if _b else d_batch
+    interval = float(os.getenv("CLIMB_INTERVAL") or d_interval)
+    workers = int(os.getenv("CLIMB_WORKERS") or d_workers)
     apollo_emails = int(os.getenv("CLIMB_APOLLO_EMAILS", "20"))
+    print(f"[climb] providers={n} batch={batch} interval={interval}s "
+          f"workers={workers} browser={use_browser}")
     print(json.dumps(climb_once(batch_size=batch, use_browser=use_browser,
                                 workers=workers, min_interval=interval,
                                 apollo_email_budget=apollo_emails), indent=2))

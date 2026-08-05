@@ -90,3 +90,19 @@ def test_climb_once_is_idempotent_on_rerun(tmp_path):
     second = climb_once(batch_size=10, add_news=False, **kw)
     assert second["processed_this_run"] == 0        # nothing left to do
     assert second["attempted_total"] == 2           # state unchanged
+
+
+def test_run_settings_scale_with_provider_count():
+    from pipeline.climb import _run_settings
+    # more providers -> bigger batch, tighter spacing (per-provider TPD/TPM add up)
+    b2, i2, w2 = _run_settings(2, use_browser=False)
+    b5, i5, w5 = _run_settings(5, use_browser=False)
+    assert b2 == 36 and b5 == 90
+    assert i2 == 10.0 and i5 == 4.0          # interval > 20/n, clamped [4,10]
+    assert w2 == 6
+    # browser layer is memory-heavy -> fewer workers
+    assert _run_settings(5, use_browser=True)[2] == 3
+    # floors/ceilings hold at the extremes
+    assert _run_settings(1, use_browser=False)[0] == 35      # batch floor
+    assert _run_settings(99, use_browser=False)[0] == 120    # batch ceiling
+    assert _run_settings(0, use_browser=False)[1] == 10.0    # n coerced to >=1

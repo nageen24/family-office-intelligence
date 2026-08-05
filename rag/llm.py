@@ -57,6 +57,12 @@ def _configured() -> List[dict]:
     return [p for p in PROVIDERS if os.getenv(p["env"])]
 
 
+def provider_count() -> int:
+    """How many free LLM providers currently have a key set. The climb scales
+    its batch size and call spacing off this — daily budgets are per provider."""
+    return len(_configured())
+
+
 # A hosted answer runs against a hard serverless deadline (~60s), and both LLM-1
 # and LLM-2 must fit inside it. Each provider gets a SHORT timeout and we fail
 # straight over — a degraded provider costs seconds, not the whole budget. The
