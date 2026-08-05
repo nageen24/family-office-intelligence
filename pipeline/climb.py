@@ -86,13 +86,14 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         candidates = discover_candidates()
     if chat is None:
         from rag.llm import chat as _chat
-        # Bulk extraction runs on a SMALL Groq model: rate limits are per model,
-        # so the 70b's 100k tokens-per-day cap (the cause of the mass llm-error
-        # failures) doesn't apply — 8b-instant has its own, larger daily budget.
-        # Honesty is unaffected: quote_present still code-verifies every quote,
-        # so a weaker model can only miss proofs, never fake them.
-        model = os.getenv("CLIMB_MODEL", "llama-3.1-8b-instant")
-        chat = lambda system, user: _chat(system, user, model=model)
+        # Bulk extraction runs on each provider's SMALL model and round-robins
+        # across all configured free providers (Groq x2 / Cerebras / NVIDIA /
+        # Gemini). Rate limits are per provider AND per model, so this both
+        # dodges any single model's daily cap (the 70b 100k-TPD leak) and ADDS
+        # the providers' daily budgets together. Honesty is unaffected:
+        # quote_present code-verifies every quote, so a weaker/other model can
+        # only miss proofs, never fake them.
+        chat = lambda system, user: _chat(system, user, small=True)
 
     state = load_state(state_path)
     todo = unattempted(candidates, state)[:batch_size]
