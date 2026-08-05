@@ -41,6 +41,9 @@ jobs:
           GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
           APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+          SNOV_CLIENT_ID: ${{ secrets.SNOV_CLIENT_ID }}
+          SNOV_CLIENT_SECRET: ${{ secrets.SNOV_CLIENT_SECRET }}
           CLIMB_BATCH: ${{ github.event.inputs.batch || '60' }}
           CLIMB_APOLLO_EMAILS: ${{ vars.CLIMB_APOLLO_EMAILS || '20' }}
           PYTHONPATH: ${{ github.workspace }}
@@ -53,7 +56,11 @@ jobs:
         run: |
           git config user.name "fo-climb-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/state/climb_pool.json data/final/dataset.csv data/final/climb_audit.csv || true
+          # quota counters must persist across runs or every run re-burns the
+          # same free-tier credits
+          git add data/state/climb_pool.json data/final/dataset.csv \
+                  data/final/climb_audit.csv data/state/serper_quota.json \
+                  data/state/email_quota.json || true
           if git diff --staged --quiet; then
             echo "no changes to commit"; exit 0
           fi
