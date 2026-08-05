@@ -126,13 +126,19 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
             print(f"[replenish] {demoted} demoted -> promoted {replenished} "
                   f"candidate(s) to hold the count")
 
-    if todo or rechecked or replenished:
+    # Escalation runs over the WHOLE state every run (idempotent), so a record a
+    # later re-validation would silently re-decide stays parked as Review until
+    # a human resolves its needs_human.json case.
+    from pipeline.escalation import escalate_ambiguous
+    parked = escalate_ambiguous(state.values())
+
+    if todo or rechecked or replenished or parked:
         save_state(state_path, state)
 
     _write_dataset(state, out_dir)
     summary = _summary(state, ledger, len(todo))
     summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished,
-                   staleness_catches=catches)
+                   staleness_catches=catches, needs_human=parked)
     # per-firm failure breakdown — the audit trail for the proof leak: why each
     # attempted firm produced no function proof (this run, and state-wide).
     attempted = todo + repl
