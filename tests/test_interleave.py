@@ -43,3 +43,18 @@ def test_all_website_or_all_name_only_is_safe():
     assert len(interleave_name_only(allsite)) == 3
     allname = [_firm(f"N{i}") for i in range(3)]
     assert len(interleave_name_only(allname)) == 3
+
+
+def test_name_only_ordered_registered_entities_before_news():
+    from pipeline.build_candidates import interleave_name_only
+    def nf(name, src):
+        f = CandidateFirm(firm_name=name, discovery_source=src)
+        f.website = None
+        return f
+    have = [_firm(f"S{i}", f"https://s{i}.com") for i in range(9)]
+    none = [nf("NewsJunk", "Google News RSS"),
+            nf("RealEdgar", "SEC EDGAR full-text search"),
+            nf("Real990", "ProPublica Nonprofit Explorer (Form 990)")]
+    out = [f.firm_name for f in interleave_name_only(have + none, every=4)]
+    name_only_order = [n for n in out if n in ("NewsJunk", "RealEdgar", "Real990")]
+    assert name_only_order == ["RealEdgar", "Real990", "NewsJunk"]  # news last

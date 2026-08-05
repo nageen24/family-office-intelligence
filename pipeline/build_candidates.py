@@ -65,6 +65,19 @@ def build_pool() -> list[CandidateFirm]:
     return pool
 
 
+def _name_only_rank(f: CandidateFirm) -> int:
+    """Sort key for name-only firms: registered ENTITIES before headline debris.
+
+    EDGAR / 990 / CIK / Wikidata are real registered entities whose name is worth
+    a browser website lookup. Google News RSS 'firms' are headline fragments (e.g.
+    'Mega-IPOs Impact Family Office') that waste the browser and, when a weak name
+    match sticks, attach a junk site. Rank News last so the browser spends its
+    effort on the SFO-rich registered entities first."""
+    src = (f.discovery_source or "").lower()
+    return 1 if ("news" in src and "edgar" not in src and "cik" not in src
+                 and "990" not in src) else 0
+
+
 def interleave_name_only(pool: list[CandidateFirm], every: int = 4):
     """Interleave the name-only firms (EDGAR/990/News/CIK — no website) THROUGH
     the website-bearing firms instead of leaving them all at the back.
@@ -73,9 +86,10 @@ def interleave_name_only(pool: list[CandidateFirm], every: int = 4):
     ~640 name-only firms (SFO-rich, and reachable once the browser layer finds
     their site) sat behind 3,200 ADV rows and were never attempted in the window.
     This emits (every-1) website firms then 1 name-only, repeating, so source mix
-    is spread across every batch. Order within each group is preserved."""
+    is spread across every batch. Website firms keep their incoming order; name-
+    only firms are ordered registered-entities-first (News RSS debris last)."""
     have = [f for f in pool if f.website]
-    none = [f for f in pool if not f.website]
+    none = sorted((f for f in pool if not f.website), key=_name_only_rank)
     out: list[CandidateFirm] = []
     hi = ni = 0
     while hi < len(have) or ni < len(none):
