@@ -60,7 +60,8 @@ jobs:
           # same free-tier credits
           git add data/state/climb_pool.json data/final/dataset.csv \
                   data/final/climb_audit.csv data/state/serper_quota.json \
-                  data/state/email_quota.json data/state/needs_human.json || true
+                  data/state/email_quota.json data/state/needs_human.json \
+                  docs/DATASET_REPORT.md || true
           if git diff --staged --quiet; then
             echo "no changes to commit"; exit 0
           fi

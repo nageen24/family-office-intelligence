@@ -136,6 +136,12 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         save_state(state_path, state)
 
     _write_dataset(state, out_dir)
+    # self-report the shipped file so a reviewer's recount matches ours
+    from pipeline.report import write_report
+    try:
+        write_report(dataset_path=os.path.join(out_dir, "dataset.csv"))
+    except Exception as e:
+        print(f"[report] skipped: {type(e).__name__}: {str(e)[:60]}")
     summary = _summary(state, ledger, len(todo))
     summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished,
                    staleness_catches=catches, needs_human=parked)
