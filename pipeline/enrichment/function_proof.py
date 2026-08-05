@@ -137,6 +137,36 @@ def fetch_site_text(url: str, max_chars: int = 9000) -> str:
     return (body + " " + uniq).strip() if uniq else body
 
 
+_PEOPLE_SUFFIXES = ("team", "our-team", "people", "our-people", "leadership",
+                    "management", "partners", "principals", "advisors", "advisers",
+                    "about", "about-us", "who-we-are", "staff", "professionals")
+
+
+def fetch_people_text(url: str, max_chars: int = 8000) -> str:
+    """People-focused fetch: team / leadership / about pages FIRST.
+
+    Principal names usually live off the homepage, so the homepage-first window the
+    proof fetch uses can truncate them away. This fetches the people pages directly
+    so a name lands in the LLM window. The honesty control is unchanged downstream —
+    quote_present still verifies any extracted name is literally in this text."""
+    from urllib.parse import urljoin
+    base = next((b for b in _candidate_bases(url) if _get(b, timeout=6)), None)
+    if not base:
+        return ""
+    texts, links, ok = [], [], 0
+    for suffix in _PEOPLE_SUFFIXES:
+        r = _get(urljoin(base + "/", suffix))
+        if r is not None:
+            texts.append(_visible_text(r.text))
+            links += _LI_IN.findall(r.text)
+            ok += 1
+        if sum(len(t) for t in texts) >= max_chars or ok >= 4:
+            break
+    body = " ".join(texts)[:max_chars]
+    uniq = " ".join(dict.fromkeys(links))
+    return (body + " " + uniq).strip() if uniq else body
+
+
 def _visible_text(html: str) -> str:
     html = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", html)
     text = re.sub(r"(?s)<[^>]+>", " ", html)
