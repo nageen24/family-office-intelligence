@@ -55,11 +55,31 @@ def test_recheck_detects_a_demotion_for_replenishment():
     f.record_status = "Qualified"
     f.last_verified = "2026-06-01"
     state = {firm_key(f): f}
-    rechecked, demoted = _recheck_stale(state, lambda u: "We are now a commercial bank.",
-                                        "2026-08-04", limit=5)
+    rechecked, demoted, catches = _recheck_stale(
+        state, lambda u: "We are now a commercial bank.", "2026-08-04", limit=5)
     assert rechecked == 1 and demoted == 1                 # demotion counted -> climb replenishes
     assert f.proof_function_quote is None                  # contradicted proof withheld
     assert f.record_status != "Qualified"
+    # the catch surfaces in the run summary with its evidence-based reason
+    assert catches[0]["firm"] == "Old Family Office"
+    assert catches[0]["trust"] == "contradicted"
+    assert "no longer present" in catches[0]["reason"]
+
+
+def test_recheck_fires_within_operating_window(monkeypatch):
+    # a 5-day mandate cannot wait 14 days: a record proven 2 days ago is due
+    from pipeline.climb import _recheck_stale
+    from pipeline.state import firm_key
+    f = CandidateFirm(firm_name="Fresh FO", discovery_source="SEC Form ADV")
+    f.website = "https://fresh.com"
+    f.proof_function_quote = "Fresh FO is a family office"
+    f.last_verified = "2026-08-03"
+    state = {firm_key(f): f}
+    page = "Fresh FO is a family office"
+    rechecked, _, catches = _recheck_stale(state, lambda u: page,
+                                           "2026-08-05", limit=5)
+    assert rechecked == 1 and not catches                  # unchanged -> fresh
+    assert f.trust == "fresh" and f.last_verified == "2026-08-05"
 
 
 def test_climb_once_is_idempotent_on_rerun(tmp_path):

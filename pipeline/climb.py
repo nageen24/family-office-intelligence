@@ -111,8 +111,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
 
     # S19 — cross-run staleness: re-check aging sources, adjust trust, re-validate
     # (a contradicted source loses its proof and the record drops out of the set).
-    rechecked, demoted = _recheck_stale(state, fetch, today, limit=recheck_size,
-                                        ledger=ledger)
+    rechecked, demoted, catches = _recheck_stale(state, fetch, today,
+                                                 limit=recheck_size, ledger=ledger)
 
     # Self-replenishing quarantine loop: for every qualifying record the recheck
     # demoted, promote the next un-attempted candidate to hold the count.
@@ -131,7 +131,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
 
     _write_dataset(state, out_dir)
     summary = _summary(state, ledger, len(todo))
-    summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished)
+    summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished,
+                   staleness_catches=catches)
     # per-firm failure breakdown — the audit trail for the proof leak: why each
     # attempted firm produced no function proof (this run, and state-wide).
     attempted = todo + repl
@@ -247,7 +248,13 @@ def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None):
     """Return (rechecked, demoted) — demoted = records that were Qualified and,
     after the re-check, no longer are (their source contradicted the stored proof)."""
     from pipeline.staleness import needs_recheck, apply_recheck
-    targets = [f for f in state.values() if needs_recheck(f, today)][:limit]
+    # The re-check age must fit inside the 5-day operating window — the old
+    # 14-day default meant staleness could NEVER fire during the mandate. At 2
+    # days every proven record is re-confirmed (or caught changed) mid-window,
+    # and the pass is fetch-only, so it costs no LLM tokens.
+    max_age = int(os.getenv("CLIMB_RECHECK_DAYS", "2"))
+    targets = [f for f in state.values()
+               if needs_recheck(f, today, max_age_days=max_age)][:limit]
     was_qualified = {id(f) for f in targets if f.record_status == "Qualified"}
     for f in targets:
         fresh = fetch(f.website) if f.website else None
@@ -258,7 +265,12 @@ def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None):
         validate_all(targets)                # contradicted -> proof gone -> drops
     demoted = sum(1 for f in targets
                   if id(f) in was_qualified and f.record_status != "Qualified")
-    return len(targets), demoted
+    # every non-fresh outcome is a catch: the firm, what changed, and the
+    # evidence-based reason — this is the operating-window staleness proof
+    catches = [{"firm": f.firm_name, "trust": f.trust,
+                "reason": f.staleness_reason}
+               for f in targets if f.trust in ("stale", "contradicted")]
+    return len(targets), demoted, catches
 
 
 def main():
