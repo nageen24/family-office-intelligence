@@ -173,6 +173,7 @@ def _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
     # reach-recovery for function-proven firms with no personal route: first the
     # Serper.dev LinkedIn lookup (keyed, capped), then Apollo (paid). Both graceful.
     recovered = _serper_pass(done)
+    recovered = _email_finder_pass(done) or recovered
     recovered = _apollo_pass(done, apollo_email_budget, apollo_client) or recovered
     if recovered:
         validate_all(done)
@@ -196,6 +197,26 @@ def _serper_pass(firms, client=None) -> int:
     for f in gap:
         enrich_serper(f, client)
     return len(gap)
+
+
+def _email_finder_pass(firms, hunter=None, snov=None) -> int:
+    """Personal-email recovery via Hunter.io/Snov.io free tiers for function-
+    proven firms with a named principal but no email. Strongest records spend
+    the tiny monthly quotas first; graceful no-op without keys. Every accepted
+    email enters as `inferred` — validate_all's own MX+SMTP check (which runs
+    after this pass) decides whether it becomes `verified`."""
+    from pipeline.enrichment.email_finder import (HunterClient, SnovClient,
+                                                  enrich_email_finders)
+    from pipeline.enrichment.apollo import is_strong
+    hunter = hunter or HunterClient()
+    snov = snov or SnovClient()
+    if not (hunter.enabled() or snov.enabled()):
+        return 0
+    gap = [f for f in firms
+           if (f.proof_function_quote or f.sec_family_office_exemption)
+           and not f.principal_name.is_blank() and f.principal_email.is_blank()]
+    gap.sort(key=is_strong, reverse=True)
+    return sum(1 for f in gap if enrich_email_finders(f, hunter, snov))
 
 
 def _apollo_pass(firms, email_budget: int, client=None) -> int:
