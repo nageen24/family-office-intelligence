@@ -96,7 +96,13 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         chat = lambda system, user: _chat(system, user, small=True)
 
     state = load_state(state_path)
-    todo = unattempted(candidates, state)[:batch_size]
+    # Interleave name-only firms (EDGAR/990/News/CIK) THROUGH the website-bearing
+    # ones in the remaining pool, so every batch is a source mix instead of pure
+    # ADV. Applied to the UNATTEMPTED stream (not the static file) so the ratio
+    # holds regardless of what earlier runs already took. Name-only firms become
+    # qualifiable once the browser layer (use_browser) finds their website.
+    from pipeline.build_candidates import interleave_name_only
+    todo = interleave_name_only(unattempted(candidates, state))[:batch_size]
 
     ledger = Ledger()
     rl = rate_limited(chat, min_interval=min_interval, ledger=ledger)

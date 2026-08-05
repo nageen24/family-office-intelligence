@@ -65,6 +65,30 @@ def build_pool() -> list[CandidateFirm]:
     return pool
 
 
+def interleave_name_only(pool: list[CandidateFirm], every: int = 4):
+    """Interleave the name-only firms (EDGAR/990/News/CIK — no website) THROUGH
+    the website-bearing firms instead of leaving them all at the back.
+
+    A pure website-first sort meant the climb only ever reached ADV firms; the
+    ~640 name-only firms (SFO-rich, and reachable once the browser layer finds
+    their site) sat behind 3,200 ADV rows and were never attempted in the window.
+    This emits (every-1) website firms then 1 name-only, repeating, so source mix
+    is spread across every batch. Order within each group is preserved."""
+    have = [f for f in pool if f.website]
+    none = [f for f in pool if not f.website]
+    out: list[CandidateFirm] = []
+    hi = ni = 0
+    while hi < len(have) or ni < len(none):
+        for _ in range(every - 1):
+            if hi < len(have):
+                out.append(have[hi]); hi += 1
+        if ni < len(none):
+            out.append(none[ni]); ni += 1
+    return out
+
+
+
+
 def main():
     pool = build_pool()
     state = {}

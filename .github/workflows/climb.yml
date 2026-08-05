@@ -33,7 +33,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install climb dependencies
-        run: pip install requests pandas dnspython python-dotenv beautifulsoup4 lxml
+        run: |
+          pip install requests pandas dnspython python-dotenv beautifulsoup4 lxml playwright
+          # browser layer: find websites for the name-only firms (EDGAR/990/News/
+          # CIK) so they can reach function proof. Graceful — if this ever fails,
+          # render.available() is False and the climb falls back to static fetch.
+          python -m playwright install --with-deps chromium || echo "playwright install failed — browser layer will no-op"
 
       - name: Run one climb increment
         env:
@@ -49,6 +54,7 @@ jobs:
           SNOV_CLIENT_SECRET: ${{ secrets.SNOV_CLIENT_SECRET }}
           CLIMB_BATCH: ${{ github.event.inputs.batch || '60' }}
           CLIMB_APOLLO_EMAILS: ${{ vars.CLIMB_APOLLO_EMAILS || '20' }}
+          CLIMB_BROWSER: ${{ vars.CLIMB_BROWSER || '1' }}
           PYTHONPATH: ${{ github.workspace }}
         run: python -m pipeline.climb | tee climb_summary.json
 

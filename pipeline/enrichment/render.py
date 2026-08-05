@@ -12,9 +12,11 @@ pipeline never hard-depends on the browser.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 from typing import Optional
-from urllib.parse import urlparse, quote_plus
+from urllib.parse import urlparse, quote_plus, parse_qs
 
 _LI_IN = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+", re.I)
 
@@ -85,6 +87,25 @@ def render_text(url: str, max_chars: int = 9000) -> str:
     return _with_page(_do, timeout=15000) or ""
 
 
+def _debing(href: str) -> str:
+    """Unwrap a Bing redirect (`bing.com/ck/a?...&u=a1<base64url>`) to the real
+    destination URL. Bing now wraps every organic result in one of these, so the
+    naive host check saw `bing.com` and rejected every result — this decodes the
+    `u=a1…` param back to the true URL. Non-redirect hrefs pass through."""
+    p = urlparse(href)
+    if "bing.com" not in (p.netloc or "").lower():
+        return href
+    u = (parse_qs(p.query).get("u") or [""])[0]
+    if not u.startswith("a1"):
+        return href
+    b64 = u[2:]
+    b64 += "=" * (-len(b64) % 4)                 # restore base64 padding
+    try:
+        return base64.urlsafe_b64decode(b64).decode("utf-8", "ignore")
+    except (binascii.Error, ValueError):
+        return href
+
+
 def find_website(firm_name: str) -> Optional[str]:
     """Best-guess official website via a rendered Bing search for the firm.
 
@@ -99,8 +120,9 @@ def find_website(firm_name: str) -> Optional[str]:
         hrefs = page.eval_on_selector_all(
             "li.b_algo h2 a", "els => els.map(e => e.href)")
         for h in hrefs or []:
-            host = (urlparse(h).netloc or "").lower()
+            real = _debing(h)
+            host = (urlparse(real).netloc or "").lower()
             if host and not any(bad in host for bad in _NON_FIRM):
-                return f"{urlparse(h).scheme}://{host}"
+                return f"{urlparse(real).scheme}://{host}"
         return None
     return _with_page(_do)
