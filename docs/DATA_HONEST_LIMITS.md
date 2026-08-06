@@ -85,3 +85,29 @@ it is a graceful no-op otherwise. No free contact-data API examined provides eno
 to move the ~22% reach wall (Hunter's free plan is ~25 lookups/mo, negligible).
 **Conclusion: reaching 500-with-reach requires a paid data plan; at strict $0 the
 honest ceiling stands at ~130–250 genuinely-reachable records.**
+
+## Verified personal emails — the free stack, and the honest count
+
+The full free email stack is in place:
+1. **Scrape `mailto:` personal emails** from the firm's own team/contact pages
+   (pulled from the raw hrefs, which tag-stripping used to drop).
+2. **Apollo free-tier credits on the strongest records only** (graceful no-op;
+   People API is paid-only, see above — recovers ~0 at $0).
+3. **Free MX + SMTP RCPT verifier** promotes a real address to `verified`.
+
+Every scraped/provider address enters **`inferred`** and becomes **`verified`**
+only if our own SMTP mailbox check confirms it. Nothing is pattern-guessed.
+
+**Measured honestly (474 firms attempted): 0 verified personal emails** — 200
+short of the gate. Why, factually:
+- Personal emails are almost never published on firm sites (privacy by design);
+  across the run only 1 firm exposed a same-domain personal address at all.
+- That one is `inferred`, not `verified`: SMTP RCPT on port 25 is blocked/greylisted
+  from this environment (and many providers accept-all), so the mailbox can't be
+  positively confirmed — we do **not** upgrade an unconfirmed probe to `verified`.
+- Apollo (the provider path to emails) is paid-only on the free tier.
+
+This is the documented miss: at strict $0 the verified-personal-email count is far
+under 200, and we report it as such rather than fabricate or pattern-build addresses
+to hit the number. The stack activates and the count rises the moment a residential/
+paid SMTP path or a paid contact-data key is supplied.
