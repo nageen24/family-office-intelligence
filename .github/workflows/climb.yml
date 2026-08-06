@@ -65,12 +65,17 @@ jobs:
         run: |
           git config user.name "fo-climb-bot"
           git config user.email "actions@users.noreply.github.com"
-          # quota counters must persist across runs or every run re-burns the
-          # same free-tier credits
-          git add data/state/climb_pool.json data/final/dataset.csv \
-                  data/final/climb_audit.csv data/state/serper_quota.json \
-                  data/state/email_quota.json data/state/needs_human.json \
-                  docs/DATASET_REPORT.md || true
+          # Add each path only if it exists — a single missing pathspec (e.g.
+          # email_quota.json when no email keys are set, or needs_human.json when
+          # nothing escalated) makes `git add a b missing` stage NOTHING, which
+          # silently produced "no changes to commit" and lost every run's state.
+          # Quota/escalation files still persist across runs when present.
+          for f in data/state/climb_pool.json data/final/dataset.csv \
+                   data/final/climb_audit.csv data/state/serper_quota.json \
+                   data/state/email_quota.json data/state/needs_human.json \
+                   docs/DATASET_REPORT.md; do
+            [ -f "$f" ] && git add "$f"
+          done
           if git diff --staged --quiet; then
             echo "no changes to commit"; exit 0
           fi
