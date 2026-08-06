@@ -133,3 +133,20 @@ def test_retighten_withholds_live_quote_that_fails():
     assert changed == 1
     assert f.proof_function_quote is None
     assert f.quarantined_function_quote == "We provide portfolio management for individuals and families."
+
+
+def test_stale_record_is_withheld_from_shipped_dataset(tmp_path):
+    # Correction 5: a Qualified record whose source went dark must not ship
+    from pipeline.climb import _ships, _write_dataset
+    from pipeline.state import firm_key
+    import csv as _csv
+    fresh = CandidateFirm(firm_name="Fresh FO", discovery_source="SEC Form ADV")
+    fresh.record_status = "Qualified"; fresh.trust = "fresh"
+    stale = CandidateFirm(firm_name="Dark FO", discovery_source="SEC Form ADV")
+    stale.record_status = "Qualified"; stale.trust = "stale"
+    assert _ships(fresh) and not _ships(stale)
+    state = {firm_key(fresh): fresh, firm_key(stale): stale}
+    n = _write_dataset(state, str(tmp_path))
+    assert n == 1                                       # only the fresh one ships
+    names = {r["firm_name"] for r in _csv.DictReader(open(tmp_path / "dataset.csv", encoding="utf-8"))}
+    assert names == {"Fresh FO"}

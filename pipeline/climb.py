@@ -40,10 +40,18 @@ def discover_candidates() -> List[CandidateFirm]:
     return SECFormADV().discover(limit=100000)
 
 
+def _ships(f) -> bool:
+    """A record ships only if it is Qualified AND its source is not stale/
+    contradicted (Correction 5: a record whose source went dark is WITHHELD, not
+    merely tagged, until a later run re-confirms it and marks it fresh)."""
+    return f.record_status == "Qualified" and (f.trust or "fresh") not in (
+        "stale", "contradicted")
+
+
 def _write_dataset(state: dict, out_dir: str) -> int:
     os.makedirs(out_dir, exist_ok=True)
     firms = list(state.values())
-    qualifying = [f for f in firms if f.record_status == "Qualified"]
+    qualifying = [f for f in firms if _ships(f)]
     pd.DataFrame([f.to_flat_row() for f in qualifying]).to_csv(
         os.path.join(out_dir, "dataset.csv"), index=False)
     # full audit surface (every attempted firm, withheld values shown)
@@ -54,7 +62,7 @@ def _write_dataset(state: dict, out_dir: str) -> int:
 
 def _summary(state: dict, ledger: Ledger, processed: int) -> dict:
     firms = list(state.values())
-    q = [f for f in firms if f.record_status == "Qualified"]
+    q = [f for f in firms if _ships(f)]          # shipped count = Qualified & not stale
     cats: dict = {}
     for f in q:
         cats[f.category.value] = cats.get(f.category.value, 0) + 1
