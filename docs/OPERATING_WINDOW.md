@@ -5,18 +5,30 @@ on a dependency failure, and self-corrects stale records across runs. Every clai
 below points to a real file / commit / log. Judgment and "why this matters"
 sentences are intentionally left blank for the reviewer to complete.
 
-## Where each run is recorded
+## Where each run is recorded — two trails, one forward-only
 
-Each run appends one timestamped line to `data/state/run_history.jsonl` (committed
-by the workflow), and the full JSON summary is in that run's GitHub Actions log.
+- **Historical trail (authoritative for the span below):** the GitHub Actions run
+  history for the `family-office-climb` workflow, plus the git commit trail of
+  `climb: scheduled run <UTC> [skip ci]` commits. These cover every run since the
+  scheduler started and are the evidence for the ≥48h span.
+- **Forward-only trail:** `data/state/run_history.jsonl` is a per-run summary file
+  added on 2026-08-06; it logs runs **from now forward only**, so it currently
+  holds few rows and is NOT the basis for the 15-run/59h span. It exists so future
+  runs leave a durable in-repo summary alongside the Actions log.
 
 _Reviewer note:_ ______________________________________________________________
 
 ## Condition 1 — scheduled runs spanning ≥ 48 hours
 
+Proven by the **GitHub Actions run history + the git commit trail** (not by
+run_history.jsonl, which only logs forward from 2026-08-06):
+
 - Scheduled `climb` runs (cron every 3h) commit `climb: scheduled run <UTC> [skip ci]`.
 - First: `2026-08-04 03:35:48 +0000`. Latest: `2026-08-06 15:09:21 +0000`.
-- **Span: 59.0 hours across 15 scheduled runs** (`git log --grep "climb: scheduled run"`).
+- **Span: 59.0 hours across 15 scheduled-run commits.**
+- Recompute: `git log --all --grep "climb: scheduled run" --format="%ad" --date=iso`
+  (count with `| wc -l`); cross-check against the workflow's run list in the
+  GitHub Actions tab.
 
 _Reviewer note:_ ______________________________________________________________
 
