@@ -125,10 +125,12 @@ _stats_lock = threading.Lock()
 _provider_stats: dict = {}
 
 
-def _bump_stat(name: str, ok: bool) -> None:
+def _bump_stat(name: str, ok: bool, err: str = "") -> None:
     with _stats_lock:
         s = _provider_stats.setdefault(name, {"ok": 0, "err": 0})
         s["ok" if ok else "err"] += 1
+        if err:                              # keep the last error so a dead
+            s["last_error"] = err[:160]      # provider's CAUSE is visible (auth/model)
 
 
 def provider_stats() -> dict:
@@ -163,6 +165,6 @@ def chat(system: str, user: str, temperature: float = 0.0,
             _bump_stat(provider["name"], ok=True)
             return out
         except Exception as e:
-            _bump_stat(provider["name"], ok=False)
+            _bump_stat(provider["name"], ok=False, err=f"{type(e).__name__}: {e}")
             last = e
     raise last
