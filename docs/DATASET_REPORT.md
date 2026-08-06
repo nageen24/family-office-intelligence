@@ -1,8 +1,8 @@
 # Dataset self-report
 
-Computed from `data\final\dataset.csv` by `python -m pipeline.report`. Re-run it against the committed file and the numbers match — these are not hand-maintained.
+Computed from `data/final/dataset.csv` by `python -m pipeline.report`. Re-run it against the committed file and the numbers match — these are not hand-maintained.
 
-**Qualifying records:** 7
+**Qualifying records:** 8
 
 ## Principal emails (by honest status)
 
@@ -22,10 +22,10 @@ A record found by more than one source is counted under each class it came from,
 
 | Discovery source class | Records |
 | --- | ---: |
-| SEC Form ADV (registered adviser roster) | 7 |
+| SEC Form ADV (registered adviser roster) | 8 |
 
 ### Exact stored labels (each record counted once)
 
 | discovery_source (as stored) | Records |
 | --- | ---: |
-| SEC Form ADV (registered adviser roster) | 7 |
+| SEC Form ADV (registered adviser roster) | 8 |
