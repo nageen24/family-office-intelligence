@@ -14,6 +14,12 @@ def test_identity_statements_qualify():
         # adjectives + comma between the article and the phrase must still pass
         "Colony Family Offices is an independent, multi-family office providing advice.",
         "Cambient Family Office is an independent multi-family office serving families.",
+        # bare predicate (no copula) — a tagline that IS an identity statement
+        "An Independent Multi-Family Office and Wealth Management Firm",
+        # 'as a ... , we provide ...' — a trailing serving clause must NOT disqualify
+        "As a discreet and exclusive multi-family office, we provide high-touch service.",
+        "As a family office, we advise on and coordinate just about everything.",
+        "An independent family office coordinating every part of a family's life.",
     ]:
         assert establishes_fo_function(q), q
 
@@ -31,6 +37,12 @@ def test_serving_families_or_service_line_do_not_qualify():
         # serving OTHER family offices (plural object), not being one
         "The firm is a leading advisor to family offices and individuals.",
         "Borrowing lessons from successful family offices, it took time to build.",
+        # 'family office' only as the head of a services menu, not an identity
+        "We offer a full family office services platform to our clients.",
+        # comparison — providing what is 'reserved FOR a family office', not being one
+        "oversight and execution typically reserved for a private family office",
+        # the phrase is the firm's NAME (subject), predicate is a different noun
+        "The Innovative Family Office is a private wealth management advisory firm.",
     ]:
         assert not establishes_fo_function(q), q
 

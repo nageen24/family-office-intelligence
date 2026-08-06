@@ -106,3 +106,30 @@ def test_run_settings_scale_with_provider_count():
     assert _run_settings(1, use_browser=False)[0] == 35      # batch floor
     assert _run_settings(99, use_browser=False)[0] == 120    # batch ceiling
     assert _run_settings(0, use_browser=False)[1] == 10.0    # n coerced to >=1
+
+
+def test_retighten_restores_quarantined_quote_that_now_passes():
+    # a real MFO whose bare-predicate quote was quarantined under a too-strict gate
+    from pipeline.climb import _retighten_function_proofs
+    from pipeline.state import firm_key
+    f = CandidateFirm(firm_name="Tillman Hartley", discovery_source="SEC Form ADV")
+    f.website = "https://th.com"
+    f.quarantined_function_quote = "An Independent Multi-Family Office and Wealth Management Firm"
+    f.proof_function_quote = None
+    f.fail_reason = "not-fo-identity-statement"
+    changed = _retighten_function_proofs({firm_key(f): f})
+    assert changed == 1
+    assert f.proof_function_quote == "An Independent Multi-Family Office and Wealth Management Firm"
+    assert f.quarantined_function_quote is None
+
+
+def test_retighten_withholds_live_quote_that_fails():
+    from pipeline.climb import _retighten_function_proofs
+    from pipeline.state import firm_key
+    f = CandidateFirm(firm_name="Serve Co", discovery_source="SEC Form ADV")
+    f.website = "https://s.com"
+    f.proof_function_quote = "We provide portfolio management for individuals and families."
+    changed = _retighten_function_proofs({firm_key(f): f})
+    assert changed == 1
+    assert f.proof_function_quote is None
+    assert f.quarantined_function_quote == "We provide portfolio management for individuals and families."

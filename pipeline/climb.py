@@ -279,19 +279,33 @@ def _apollo_pass(firms, email_budget: int, client=None) -> int:
 
 
 def _retighten_function_proofs(state: dict) -> int:
-    """Withhold any stored function-proof quote that fails the tightened FO gate
-    (establishes_fo_function). The withheld quote is kept for audit; the record
-    loses its proof and drops from Qualified on the next validate. Idempotent."""
+    """Bring every stored function proof to the CURRENT FO-identity gate, both ways:
+
+    - WITHHOLD a live proof quote that fails the gate (kept in
+      quarantined_function_quote for audit; the record drops from Qualified).
+    - RESTORE a previously-quarantined quote that passes the gate now (e.g. after
+      the gate was refined to accept bare-predicate taglines) so a real family
+      office returns to proven.
+
+    Idempotent; re-derives category + record_status. Returns the number of
+    records whose proof state changed this pass."""
     from pipeline.ontology import establishes_fo_function
     n = 0
     for f in state.values():
-        q = f.proof_function_quote
-        if q and not establishes_fo_function(q):
-            f.quarantined_function_quote = q
+        live = f.proof_function_quote
+        if live and not establishes_fo_function(live):
+            f.quarantined_function_quote = live
             f.proof_function_quote = None
             f.proof_type_quote = None
             f.sec_family_office_exemption = False
             f.fail_reason = "not-fo-identity-statement"
+            n += 1
+        elif not live and f.quarantined_function_quote \
+                and establishes_fo_function(f.quarantined_function_quote):
+            f.proof_function_quote = f.quarantined_function_quote
+            f.proof_function_source = f.proof_function_source or f.website
+            f.quarantined_function_quote = None
+            f.fail_reason = None
             n += 1
     if n:
         validate_all(list(state.values()))       # re-derive category + record_status

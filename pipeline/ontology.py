@@ -81,33 +81,54 @@ def quote_present(source_text: str, quote: str) -> bool:
 # the quote text, not a matter of trusting the model.
 import re as _re2
 _FO_PHRASE = r"(?:single[\s-]?|multi[\s-]?)?family[\s-]?office"
-# The PREDICATE noun must be SINGULAR: '... is a multi-family office' (being one),
+# The PREDICATE noun must be SINGULAR: '... a multi-family office' (being one),
 # not '... to family officeS' (serving/among others).
 _FO_SINGULAR = r"(?:single[\s-]?|multi[\s-]?)?family[\s-]?office(?!s)"
-# Up to 3 ADJECTIVE words (independent, outsourced, boutique, ...) with optional
-# commas may sit between the article and the phrase, but NOT a preposition/verb
-# (to / for / of / as / with / serving) — those signal serving-others, not being-one.
+# Up to 3 ADJECTIVE words (independent, outsourced, discreet, ...) with optional
+# commas may sit before the phrase, but NOT a preposition/verb (to / for / of / as
+# / with / serving) — those signal serving-others, not being-one.
 _ADJ_GAP = r"(?:(?!(?:to|for|of|as|with|serv\w*)\b)[a-z][a-z'-]*,?\s+){0,3}"
+# The phrase must be the firm's IDENTITY, not the head of a services menu
+# ('family office services / solutions / experience / practice ...').
+_NOT_SERVICE = (r"(?!\s+(?:services?|solutions?|practice|practices|offering|"
+                r"capabilities|model|approach|experience|platform|team|group|"
+                r"division|menu|advisory|arm))")
+# In the BARE form, a following copula means the phrase is the firm's NAME/subject
+# ('The X Family Office IS a wealth advisory firm'), not the predicate — reject it.
+_NOT_SUBJECT = r"(?!\s+(?:is|are|was|were)\b)"
+# ...and a preceding preposition means it's a comparison / serving-others
+# ('oversight reserved FOR a private family office'), not being one — reject it.
+_NOT_PREP = r"(?<!\bfor )(?<!\bto )(?<!\bof )(?<!\blike )(?<!\bthan )(?<!\binto )"
+_COPULA = (r"(?:is|are|being|remains?|operates?\s+as|operating\s+as|serves?\s+as|"
+           r"serving\s+as|serve\s+as|functions?\s+as|functioning\s+as|acts?\s+as|"
+           r"acting\s+as|structured\s+as|set\s+up\s+as|established\s+as|known\s+as|"
+           r"built\s+as)")
 
-# The firm identifies AS a family office: copula / operates-as / functions-as /
-# serves-as / structured-as, then an optional article + adjective gap + the phrase.
+# An FO-IDENTITY predicate, in either form (a trailing 'we provide/serve...' clause
+# does NOT disqualify — the identity is already stated):
+#   copula: 'is a / operates as a / ... [adj] family office'
+#   bare:   'a / an / the [adj] family office'  (e.g. a tagline
+#           'An Independent Multi-Family Office and Wealth Management Firm')
+# Both require the SINGULAR phrase and forbid a services-menu head after it; the
+# bare form additionally forbids a preceding preposition (comparison) or a
+# following copula (the phrase being the firm's name, not its predicate).
 _FO_IDENTITY = _re2.compile(
-    r"\b(?:is|are|being|remains?|"
-    r"operates?\s+as|operating\s+as|"
-    r"serves?\s+as|serving\s+as|serve\s+as|"
-    r"functions?\s+as|functioning\s+as|acts?\s+as|acting\s+as|"
-    r"structured\s+as|set\s+up\s+as|established\s+as|known\s+as|built\s+as)\s+"
-    r"(?:an?\s+|the\s+)?" + _ADJ_GAP + _FO_SINGULAR, _re2.I)
+    r"(?:" + _COPULA + r"\s+(?:an?\s+|the\s+)?" + _ADJ_GAP + _FO_SINGULAR + _NOT_SERVICE
+    + r"|" + _NOT_PREP + r"\b(?:a|an|the)\s+" + _ADJ_GAP + _FO_SINGULAR
+    + _NOT_SERVICE + _NOT_SUBJECT + r")",
+    _re2.I)
 
 
 def establishes_fo_function(quote: str) -> bool:
-    """True only if the quote STATES the firm is / operates as a family office.
+    """True only if the quote contains a family-office IDENTITY predicate.
 
-    Passes: 'We are a single-family office', 'operates as a multi-family office',
-    'Colony Family Offices is an independent, multi-family office'. Fails: 'serves
-    wealthy families', 'family office services', 'family-owned RIA', 'advisor to
-    family offices', a firm merely NAMED '... Family Office' that only 'delivers
-    family office services'."""
+    Passes (regardless of any trailing serving clause):
+      'We are a single-family office', 'operates as a multi-family office',
+      'Colony Family Offices is an independent, multi-family office providing...',
+      'An Independent Multi-Family Office and Wealth Management Firm',
+      'As a discreet and exclusive multi-family office, we provide...'.
+    Fails: 'services for families', 'Family Office Services' (menu line),
+    'family-owned RIA', 'advisor to family offices' (serving others, plural)."""
     ql = (quote or "").lower()
     if not _re2.search(_FO_PHRASE, ql):     # must actually mention a family office
         return False
