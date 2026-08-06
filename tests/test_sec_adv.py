@@ -65,3 +65,17 @@ def test_candidate_mapping():
     assert "123456" in (c.proof_exists or "")           # CRD recorded as existence proof
     # discovery must NOT assert function — that's S10's job
     assert c.proof_function_quote is None
+
+
+def test_name_net_keeps_fo_named_firm_without_hnw_clients():
+    # a firm calling itself a family office but reporting no HNW-individual clients
+    fo = _row(**{"Primary Business Name": "PINNACLE FAMILY OFFICE", "5D(b)(1)": "",
+                 "5D(f)(1)": "5"})           # institutional-only, no HNW individuals
+    assert select_rows([fo]) == []                                  # tight net drops it
+    assert len(select_rows([fo], concentrated=False, name_net=True)) == 1  # name net keeps it
+
+
+def test_wide_net_keeps_hnw_firm_with_institutional_clients():
+    mixed = _row(**{"Primary Business Name": "GENERIC ADVISORS", "5D(f)(1)": "10"})
+    assert select_rows([mixed]) == []                               # concentrated drops
+    assert len(select_rows([mixed], concentrated=False, name_net=True)) == 1

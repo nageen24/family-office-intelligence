@@ -51,13 +51,40 @@ def _real_site(row: dict) -> Optional[str]:
     return w
 
 
-def select_rows(rows: List[dict], concentrated: bool = True) -> List[dict]:
-    """Broad-but-bounded FO/MFO candidate net from the roster."""
+import re as _re
+_FO_NAME = _re.compile(
+    r"family office|multi.?family|single.?family|family wealth|private wealth|"
+    r"family capital|family partners|family enterprise|family group|"
+    r"family investment", _re.I)
+
+
+def _name(row: dict) -> str:
+    return f"{row.get('Primary Business Name','')} {row.get('Legal Name','')}"
+
+
+def select_rows(rows: List[dict], concentrated: bool = True,
+                name_net: bool = False) -> List[dict]:
+    """FO/MFO candidate net from the roster (every row still needs a real own site).
+
+    - concentrated=True (default): the tight net — serves HNW individuals AND has
+      no institutional client types. High precision.
+    - concentrated=False: the wide net — serves HNW individuals, institutional
+      clients allowed (picks up MFOs / private-wealth arms that also take
+      institutional money). ~2x the pool.
+    - name_net=True: ALSO keep any firm whose NAME signals a family office
+      (family office / multi-family / private wealth / ...) even if it reports no
+      HNW-individual clients — a firm calling itself a family office is a
+      candidate regardless of its Item 5.D mix. Proof B still gates on the site.
+    """
     out = []
     for r in rows:
-        if _num(r, "5D(b)(1)") <= 0:           # must serve HNW individuals
-            continue
         if not _real_site(r):                   # must have a real own website
+            continue
+        named = name_net and bool(_FO_NAME.search(_name(r)))
+        if named:
+            out.append(r)
+            continue
+        if _num(r, "5D(b)(1)") <= 0:           # else must serve HNW individuals
             continue
         if concentrated and any(_num(r, c) > 0 for c in _INSTITUTIONAL):
             continue                            # drop institutional-heavy advisers
@@ -65,16 +92,10 @@ def select_rows(rows: List[dict], concentrated: bool = True) -> List[dict]:
     return out
 
 
-import re as _re
-_FO_NAME = _re.compile(
-    r"family office|multi.?family|family wealth|family capital|family partners|"
-    r"family enterprise|family group|family investment", _re.I)
-
-
 def priority_score(row: dict) -> int:
     """Rank candidates by family-office likelihood so the scheduled climb verifies
     the highest-yield firms first (a random slice is ~0% FO; FO-named ~47%)."""
-    name = f"{row.get('Primary Business Name','')} {row.get('Legal Name','')}"
+    name = _name(row)
     score = 0
     if _FO_NAME.search(name):
         score += 100                       # explicit FO/multi-family name signal
@@ -161,12 +182,15 @@ class SECFormADV(DiscoverySource):
         href = best[0]
         return href if href.startswith("http") else "https://www.sec.gov" + href
 
-    def discover(self, limit: int = 4000) -> List[CandidateFirm]:
+    def discover(self, limit: int = 8000) -> List[CandidateFirm]:
         try:
             rows = self._load_rows()
         except Exception as e:
             print(f"[{self.name}] roster load error: {e}")
             return []
-        picked = select_rows(rows)
+        # WIDE net: every HNW-serving adviser with a site + every FO-named firm
+        # (institutional allowed). Proof B still gates quality, so a wider net only
+        # extends the runway; priority_score verifies the likeliest FOs first.
+        picked = select_rows(rows, concentrated=False, name_net=True)
         picked.sort(key=priority_score, reverse=True)   # FO-signal candidates first
         return [candidate_from_row(r) for r in picked[:limit]]
