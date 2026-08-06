@@ -1,0 +1,9 @@
+{
+  "condition": "dependency-failure (INDUCED)",
+  "label": "induced",
+  "source": "SEC EDGAR full-text search",
+  "action": "endpoint host replaced with an invalid host to force a source-side failure",
+  "result": "source returned 0 candidates and the pipeline continued (no crash)",
+  "handling": "per-source try/except in build_candidates + DiscoverySource.get; a flaky/blocked source is logged and skipped, never sinks the run",
+  "ts": "2026-08-06T17:01:07+00:00"
+}

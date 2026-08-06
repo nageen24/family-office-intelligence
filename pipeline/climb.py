@@ -374,9 +374,38 @@ def main():
     apollo_emails = int(os.getenv("CLIMB_APOLLO_EMAILS", "20"))
     print(f"[climb] providers={n} batch={batch} interval={interval}s "
           f"workers={workers} browser={use_browser}")
-    print(json.dumps(climb_once(batch_size=batch, use_browser=use_browser,
-                                workers=workers, min_interval=interval,
-                                apollo_email_budget=apollo_emails), indent=2))
+    summary = climb_once(batch_size=batch, use_browser=use_browser,
+                         workers=workers, min_interval=interval,
+                         apollo_email_budget=apollo_emails)
+    _append_run_history(summary)
+    print(json.dumps(summary, indent=2))
+
+
+RUN_HISTORY = os.path.join("data", "state", "run_history.jsonl")
+
+
+def _append_run_history(summary: dict, path: str = RUN_HISTORY) -> None:
+    """Append a one-line, timestamped record of this run to a COMMITTED file, so
+    the operating window (run cadence, staleness catches, failures) is a durable
+    repo artifact, not just an Actions-log entry that ages out."""
+    import json
+    from datetime import datetime, timezone
+    row = {
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "processed": summary.get("processed_this_run"),
+        "attempted_total": summary.get("attempted_total"),
+        "qualified_total": summary.get("qualified_total"),
+        "rechecked": summary.get("rechecked"),
+        "demoted": summary.get("demoted"),
+        "staleness_catches": summary.get("staleness_catches"),
+        "proof_retightened": summary.get("proof_retightened"),
+        "needs_human": summary.get("needs_human"),
+        "provider_health": summary.get("provider_health"),
+        "fail_reasons_this_run": summary.get("fail_reasons_this_run"),
+    }
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, default=str) + "\n")
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ jobs:
           for f in data/state/climb_pool.json data/final/dataset.csv \
                    data/final/climb_audit.csv data/state/serper_quota.json \
                    data/state/email_quota.json data/state/needs_human.json \
-                   docs/DATASET_REPORT.md; do
+                   data/state/run_history.jsonl docs/DATASET_REPORT.md; do
             [ -f "$f" ] && git add "$f"
           done
           if git diff --staged --quiet; then
