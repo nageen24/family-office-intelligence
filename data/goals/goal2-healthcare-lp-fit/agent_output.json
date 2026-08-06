@@ -1,0 +1,49 @@
+{
+  "goal": "Identify the family offices in the dataset that are the best fit for a lower-middle-market healthcare services fund seeking limited partners, and tell me how confident you are in each",
+  "steps": [
+    {
+      "tool": "search",
+      "args": {
+        "category": "family offices",
+        "focus": "healthcare",
+        "is_commercial": false,
+        "trust": true,
+        "min_trust": 0.5,
+        "limit": 100
+      },
+      "result": {
+        "matched": 0,
+        "eligible": 2,
+        "unhonored": []
+      }
+    },
+    {
+      "tool": "count",
+      "args": {
+        "category": "family offices",
+        "location": null,
+        "focus": "healthcare",
+        "is_commercial": false,
+        "trust": true,
+        "min_trust": 0.5
+      },
+      "result": {
+        "result": {
+          "count": 0
+        }
+      }
+    }
+  ],
+  "findings": [],
+  "status": "refused",
+  "draft": {
+    "answer": "0 matching records",
+    "count": 0,
+    "scope": "full corpus"
+  },
+  "release": "refused",
+  "output": null,
+  "refuse_reason": null,
+  "budget_used": 2,
+  "count_result": 0
+}

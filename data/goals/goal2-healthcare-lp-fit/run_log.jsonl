@@ -1,0 +1,4 @@
+{"seq": 0, "event": "goal", "goal": "Identify the family offices in the dataset that are the best fit for a lower-middle-market healthcare services fund seeking limited partners, and tell me how confident you are in each"}
+{"seq": 1, "event": "tool", "tool": "search", "args": {"category": "family offices", "focus": "healthcare", "is_commercial": false, "trust": true, "min_trust": 0.5, "limit": 100}, "result": {"matched": 0, "eligible": 2, "unhonored": []}}
+{"seq": 2, "event": "tool", "tool": "count", "args": {"category": "family offices", "location": null, "focus": "healthcare", "is_commercial": false, "trust": true, "min_trust": 0.5}, "result": {"result": {"count": 0}}}
+{"seq": 3, "event": "terminal", "status": "refused", "release": "refused", "refuse_reason": null}

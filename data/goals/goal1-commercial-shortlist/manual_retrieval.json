@@ -1,0 +1,21 @@
+{
+  "gated": false,
+  "hit_count": 2,
+  "hits": [
+    {
+      "firm_name": "ALPHA CAPITAL FAMILY OFFICE, LLC",
+      "firm_type": "MFO",
+      "category": "MFO",
+      "reachability_score": "45",
+      "record_status": "Qualified"
+    },
+    {
+      "firm_name": "SESTANTE FAMILY OFFICE",
+      "firm_type": "Unconfirmed",
+      "category": "FO-type-unknown",
+      "reachability_score": "45",
+      "record_status": "Qualified"
+    }
+  ],
+  "corpus_records": 2
+}

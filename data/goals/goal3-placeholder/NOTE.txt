@@ -1,0 +1,2 @@
+Goal text is a placeholder; fill goal.txt then re-run:
+  python -m scripts.run_goals

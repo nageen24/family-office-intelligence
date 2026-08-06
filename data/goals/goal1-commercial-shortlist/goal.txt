@@ -1,0 +1,1 @@
+Build a shortlist of multi-family offices in the dataset that could be a commercial outreach target: for each, give the named decision-maker, their personal contact route, what the firm says it does, and any dated signal — and flag any where the evidence is too thin to contact.

@@ -39,4 +39,3 @@ data/rag/
 
 .vercel
 data/state/human_decisions.log
-data/goals/
