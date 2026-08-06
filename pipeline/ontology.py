@@ -88,32 +88,40 @@ _FO_SINGULAR = r"(?:single[\s-]?|multi[\s-]?)?family[\s-]?office(?!s)"
 # commas may sit before the phrase, but NOT a preposition/verb (to / for / of / as
 # / with / serving) — those signal serving-others, not being-one.
 _ADJ_GAP = r"(?:(?!(?:to|for|of|as|with|serv\w*)\b)[a-z][a-z'-]*,?\s+){0,3}"
-# The phrase must be the firm's IDENTITY, not the head of a services menu
-# ('family office services / solutions / experience / practice ...').
+# The phrase must be the firm's IDENTITY, not the head of a services menu or a
+# STRUCTURE/method the firm merely uses ('family office services / solutions /
+# experience / structure / framework ...').
 _NOT_SERVICE = (r"(?!\s+(?:services?|solutions?|practice|practices|offering|"
                 r"capabilities|model|approach|experience|platform|team|group|"
-                r"division|menu|advisory|arm))")
+                r"division|menu|advisory|arm|structure|framework))")
 # In the BARE form, a following copula means the phrase is the firm's NAME/subject
 # ('The X Family Office IS a wealth advisory firm'), not the predicate — reject it.
 _NOT_SUBJECT = r"(?!\s+(?:is|are|was|were)\b)"
-# ...and a preceding preposition means it's a comparison / serving-others
-# ('oversight reserved FOR a private family office'), not being one — reject it.
-_NOT_PREP = r"(?<!\bfor )(?<!\bto )(?<!\bof )(?<!\blike )(?<!\bthan )(?<!\binto )"
+# ...and a preceding preposition/heritage-'as' means it's a comparison
+# ('reserved FOR a family office') or a bio ('background AS a family office'), not
+# being one — reject it. Fronted 'As a family office, we...' is handled separately.
+_NOT_PREP = (r"(?<!\bfor )(?<!\bto )(?<!\bof )(?<!\blike )(?<!\bthan )(?<!\binto )"
+             r"(?<!\bas )")
 _COPULA = (r"(?:is|are|being|remains?|operates?\s+as|operating\s+as|serves?\s+as|"
            r"serving\s+as|serve\s+as|functions?\s+as|functioning\s+as|acts?\s+as|"
            r"acting\s+as|structured\s+as|set\s+up\s+as|established\s+as|known\s+as|"
            r"built\s+as)")
 
-# An FO-IDENTITY predicate, in either form (a trailing 'we provide/serve...' clause
+# An FO-IDENTITY predicate, in three forms (a trailing 'we provide/serve...' clause
 # does NOT disqualify — the identity is already stated):
-#   copula: 'is a / operates as a / ... [adj] family office'
-#   bare:   'a / an / the [adj] family office'  (e.g. a tagline
-#           'An Independent Multi-Family Office and Wealth Management Firm')
-# Both require the SINGULAR phrase and forbid a services-menu head after it; the
-# bare form additionally forbids a preceding preposition (comparison) or a
-# following copula (the phrase being the firm's name, not its predicate).
+#   copula:  'is a / operates as a / ... [adj] family office'
+#   fronted: '(clause start) As a [adj] family office, ...'  — a self-description,
+#            but ONLY clause-initial, so 'background as a family office' (bio) fails
+#   bare:    'a / an / the [adj] family office'  (e.g. a tagline
+#            'An Independent Multi-Family Office and Wealth Management Firm')
+# All require the SINGULAR phrase and forbid a services/structure head after it; the
+# bare form additionally forbids a preceding preposition/heritage-'as' (comparison
+# or bio) or a following copula (the phrase being the firm's name, not its predicate).
+_FRONTED_AS = (r"(?:^|[,.;:]\s+)as\s+(?:an?\s+|the\s+)?" + _ADJ_GAP + _FO_SINGULAR
+               + _NOT_SERVICE)
 _FO_IDENTITY = _re2.compile(
     r"(?:" + _COPULA + r"\s+(?:an?\s+|the\s+)?" + _ADJ_GAP + _FO_SINGULAR + _NOT_SERVICE
+    + r"|" + _FRONTED_AS
     + r"|" + _NOT_PREP + r"\b(?:a|an|the)\s+" + _ADJ_GAP + _FO_SINGULAR
     + _NOT_SERVICE + _NOT_SUBJECT + r")",
     _re2.I)

@@ -43,6 +43,10 @@ def test_serving_families_or_service_line_do_not_qualify():
         "oversight and execution typically reserved for a private family office",
         # the phrase is the firm's NAME (subject), predicate is a different noun
         "The Innovative Family Office is a private wealth management advisory firm.",
+        # heritage / bio framing ('background AS a family office'), not current identity
+        "our philosophy stems from our background as a successful family office",
+        # a STRUCTURE/method the firm leverages, not being one
+        "Leveraging a multifamily office structure to serve as your Chief Investment Officer",
     ]:
         assert not establishes_fo_function(q), q
 
