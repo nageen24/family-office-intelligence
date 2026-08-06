@@ -102,6 +102,10 @@ def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
 
 
 _LI_IN = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+", re.I)
+# Personal emails are commonly published ONLY inside <a href="mailto:...">, whose
+# address the tag-stripping below would drop. Pull them from the raw hrefs (like
+# the LinkedIn profiles) so the contact extractor can name-match + SMTP-verify them.
+_MAILTO = re.compile(r"mailto:([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", re.I)
 
 
 def _candidate_bases(url: str) -> list[str]:
@@ -147,7 +151,7 @@ def fetch_site_text(url: str, max_chars: int = 9000) -> str:
         r = _get(urljoin(base + "/", suffix))
         if r is not None:
             texts.append(_visible_text(r.text))
-            links += _LI_IN.findall(r.text)
+            links += _LI_IN.findall(r.text) + _MAILTO.findall(r.text)
             ok += 1
         if sum(len(t) for t in texts) >= max_chars or ok >= 4:
             break
@@ -177,7 +181,7 @@ def fetch_people_text(url: str, max_chars: int = 8000) -> str:
         r = _get(urljoin(base + "/", suffix))
         if r is not None:
             texts.append(_visible_text(r.text))
-            links += _LI_IN.findall(r.text)
+            links += _LI_IN.findall(r.text) + _MAILTO.findall(r.text)
             ok += 1
         if sum(len(t) for t in texts) >= max_chars or ok >= 4:
             break
