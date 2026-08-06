@@ -150,8 +150,12 @@ class CandidateFirm:
     rejection_reason: Optional[str] = None     # set when disqualified
     # why enrichment produced no function proof for THIS firm (audit-only):
     # fetch-error / llm-error: ... / no-proof-language-found / quote-not-verbatim /
-    # llm-response-unparseable / no-website. None once a proof lands.
+    # not-fo-identity-statement / llm-response-unparseable / no-website. None once a
+    # proof lands.
     fail_reason: Optional[str] = None
+    # a function-proof quote that was accepted under the OLD lenient rule and later
+    # WITHHELD when it failed the tightened IS/operates-as gate — kept for audit.
+    quarantined_function_quote: Optional[str] = None
 
     def to_flat_row(self, audit: bool = False) -> dict:
         """Flatten to a single CSV row with one column per cell + provenance.
@@ -208,4 +212,5 @@ class CandidateFirm:
         if audit:
             row["staleness_reason"] = self.staleness_reason
             row["fail_reason"] = self.fail_reason
+            row["quarantined_function_quote"] = self.quarantined_function_quote
         return row

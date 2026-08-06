@@ -57,7 +57,9 @@ def test_not_a_family_office_yields_no_proof():
 def test_exemption_flag_passes_through_when_function_proven():
     llm = _stub({
         "is_family_office": True,
-        "function_quote": "integrated wealth management for our client families",
+        # must be a real IS/operates-as statement now (tightened gate), not a
+        # generic 'wealth management for families' line
+        "function_quote": "Harbor Family Partners is a multi-family office serving 40 families",
         "type": "unknown", "type_quote": "",
         "sec_family_office_exemption": True,
     })

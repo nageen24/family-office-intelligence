@@ -21,7 +21,7 @@ from typing import Callable, Optional
 
 import requests
 
-from pipeline.ontology import quote_present
+from pipeline.ontology import quote_present, establishes_fo_function
 from pipeline.schema import CandidateFirm
 from pipeline.discovery.base import USER_AGENT
 
@@ -30,10 +30,15 @@ FetchFn = Callable[[str], str]
 
 SYSTEM = (
     "You read one company's OWN website text and decide, strictly from that text, "
-    "whether the company states it operates as a family office. You never guess "
-    "from the name. Return ONLY JSON with these keys:\n"
+    "whether the company states it IS or OPERATES AS a family office (single- or "
+    "multi-family). You never guess from the name. A firm that merely SERVES "
+    "wealthy families, offers 'family office services' as one service line, is a "
+    "'family-owned' advisory firm, or is just NAMED with 'family' does NOT "
+    "qualify — is_family_office must be false in those cases. Return ONLY JSON "
+    "with these keys:\n"
     '  is_family_office (bool), function_quote (a VERBATIM sentence copied exactly '
-    'from the text that states it operates as a family office, else ""), '
+    'from the text in which the firm states it IS or OPERATES AS a family office, '
+    'else ""), '
     'type ("single"|"multi"|"unknown"), type_quote (a VERBATIM sentence proving '
     'single- vs multi-family, else ""), sec_family_office_exemption (bool: does '
     "the text claim an SEC family-office exemption / Rule 202(a)(11)(G)-1), "
@@ -70,7 +75,9 @@ def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
     tq = (data.get("type_quote") or "").strip()
     focus = (data.get("investing_focus") or "").strip()
 
-    # The mechanical control: a quote counts only if it is literally on the page.
+    # The mechanical control: a quote counts only if it is literally on the page
+    # AND states the firm IS / operates as a family office (not merely serves
+    # families or lists 'family office services').
     no_proof_reason = None
     if not data:
         fq, no_proof_reason = None, "llm-response-unparseable"
@@ -78,6 +85,8 @@ def extract_function_proof(page_text: str, llm: LlmFn) -> dict:
         fq, no_proof_reason = None, "no-proof-language-found"
     elif not quote_present(page_text, fq):
         fq, no_proof_reason = None, "quote-not-verbatim"
+    elif not establishes_fo_function(fq):
+        fq, no_proof_reason = None, "not-fo-identity-statement"
     if not (tq and quote_present(page_text, tq)):
         tq = None
     if not (focus and quote_present(page_text, focus)):

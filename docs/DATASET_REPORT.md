@@ -1,8 +1,8 @@
 # Dataset self-report
 
-Computed from `data/final/dataset.csv` by `python -m pipeline.report`. Re-run it against the committed file and the numbers match — these are not hand-maintained.
+Computed from `C:\Users\AL HAMD TRADERS\AppData\Local\Temp\pytest-of-Nageen\pytest-74\test_climb_once_is_idempotent_0\dataset.csv` by `python -m pipeline.report`. Re-run it against the committed file and the numbers match — these are not hand-maintained.
 
-**Qualifying records:** 10
+**Qualifying records:** 2
 
 ## Principal emails (by honest status)
 
@@ -22,10 +22,10 @@ A record found by more than one source is counted under each class it came from,
 
 | Discovery source class | Records |
 | --- | ---: |
-| SEC Form ADV (registered adviser roster) | 10 |
+| SEC Form ADV | 2 |
 
 ### Exact stored labels (each record counted once)
 
 | discovery_source (as stored) | Records |
 | --- | ---: |
-| SEC Form ADV (registered adviser roster) | 10 |
+| SEC Form ADV | 2 |

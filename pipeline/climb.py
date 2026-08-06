@@ -114,6 +114,12 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         return _process_batch(firms, rl, fetch, ledger, use_browser, add_news,
                               apollo_email_budget, apollo_client, workers, today)
 
+    # Proof-standard re-check: withhold any stored function-proof quote that fails
+    # the tightened IS/operates-as gate (serving families / 'family office
+    # services' / family-owned RIA no longer qualify). Runs every run so the whole
+    # accumulated set stays at the current standard, not just newly-processed firms.
+    withheld = _retighten_function_proofs(state)
+
     if todo:
         merge_pool(state, process(todo))
 
@@ -140,7 +146,7 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     from pipeline.escalation import escalate_ambiguous
     parked = escalate_ambiguous(state.values())
 
-    if todo or rechecked or replenished or parked:
+    if todo or rechecked or replenished or parked or withheld:
         save_state(state_path, state)
 
     _write_dataset(state, out_dir)
@@ -152,7 +158,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
         print(f"[report] skipped: {type(e).__name__}: {str(e)[:60]}")
     summary = _summary(state, ledger, len(todo))
     summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished,
-                   staleness_catches=catches, needs_human=parked)
+                   staleness_catches=catches, needs_human=parked,
+                   proof_retightened=withheld)
     # which LLM providers actually served calls this run — a provider with all
     # errors is dead weight (bad key/model) and forfeits its share of the TPD.
     try:
@@ -269,6 +276,26 @@ def _apollo_pass(firms, email_budget: int, client=None) -> int:
             used += 1
         enrich_apollo(f, client, reveal_email=reveal)
     return len(gap)
+
+
+def _retighten_function_proofs(state: dict) -> int:
+    """Withhold any stored function-proof quote that fails the tightened FO gate
+    (establishes_fo_function). The withheld quote is kept for audit; the record
+    loses its proof and drops from Qualified on the next validate. Idempotent."""
+    from pipeline.ontology import establishes_fo_function
+    n = 0
+    for f in state.values():
+        q = f.proof_function_quote
+        if q and not establishes_fo_function(q):
+            f.quarantined_function_quote = q
+            f.proof_function_quote = None
+            f.proof_type_quote = None
+            f.sec_family_office_exemption = False
+            f.fail_reason = "not-fo-identity-statement"
+            n += 1
+    if n:
+        validate_all(list(state.values()))       # re-derive category + record_status
+    return n
 
 
 def _recheck_stale(state: dict, fetch, today: str, limit: int, ledger=None):

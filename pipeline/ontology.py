@@ -73,6 +73,47 @@ def quote_present(source_text: str, quote: str) -> bool:
     return q in _normalize(source_text)
 
 
+# --- family-office FUNCTION gate (proof-standard tightening) --------------------
+# A quote proves FO-function ONLY if the firm states it IS or OPERATES AS a family
+# office (single or multi). Serving wealthy families, offering "family office
+# services" as a service line, a family-related NAME, or being a "family-owned"
+# advisory firm do NOT qualify (per the brief). This is a mechanical control on
+# the quote text, not a matter of trusting the model.
+import re as _re2
+_FO_PHRASE = r"(?:single[\s-]?|multi[\s-]?)?family[\s-]?office"
+# The PREDICATE noun must be SINGULAR: '... is a multi-family office' (being one),
+# not '... to family officeS' (serving/among others).
+_FO_SINGULAR = r"(?:single[\s-]?|multi[\s-]?)?family[\s-]?office(?!s)"
+# Up to 3 ADJECTIVE words (independent, outsourced, boutique, ...) with optional
+# commas may sit between the article and the phrase, but NOT a preposition/verb
+# (to / for / of / as / with / serving) — those signal serving-others, not being-one.
+_ADJ_GAP = r"(?:(?!(?:to|for|of|as|with|serv\w*)\b)[a-z][a-z'-]*,?\s+){0,3}"
+
+# The firm identifies AS a family office: copula / operates-as / functions-as /
+# serves-as / structured-as, then an optional article + adjective gap + the phrase.
+_FO_IDENTITY = _re2.compile(
+    r"\b(?:is|are|being|remains?|"
+    r"operates?\s+as|operating\s+as|"
+    r"serves?\s+as|serving\s+as|serve\s+as|"
+    r"functions?\s+as|functioning\s+as|acts?\s+as|acting\s+as|"
+    r"structured\s+as|set\s+up\s+as|established\s+as|known\s+as|built\s+as)\s+"
+    r"(?:an?\s+|the\s+)?" + _ADJ_GAP + _FO_SINGULAR, _re2.I)
+
+
+def establishes_fo_function(quote: str) -> bool:
+    """True only if the quote STATES the firm is / operates as a family office.
+
+    Passes: 'We are a single-family office', 'operates as a multi-family office',
+    'Colony Family Offices is an independent, multi-family office'. Fails: 'serves
+    wealthy families', 'family office services', 'family-owned RIA', 'advisor to
+    family offices', a firm merely NAMED '... Family Office' that only 'delivers
+    family office services'."""
+    ql = (quote or "").lower()
+    if not _re2.search(_FO_PHRASE, ql):     # must actually mention a family office
+        return False
+    return bool(_FO_IDENTITY.search(ql))
+
+
 # --- S2: status vocabulary -----------------------------------------------------
 class Status(str, Enum):
     VERIFIED = "verified"
