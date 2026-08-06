@@ -104,3 +104,24 @@ def test_no_keys_raises(monkeypatch):
         monkeypatch.delenv(e, raising=False)
     with pytest.raises(RuntimeError):
         llm.chat("s", "u")
+
+
+def test_provider_stats_track_ok_and_error(monkeypatch):
+    _both_keys(monkeypatch)
+    monkeypatch.setenv("CEREBRAS_API_KEY", "c")   # 3 providers
+    monkeypatch.setattr(llm, "_rr", [0])
+    llm.reset_provider_stats()
+
+    def fake_call(provider, *a, **k):
+        if provider["name"] == "cerebras":
+            raise RuntimeError("cerebras dead")   # simulate a broken provider
+        return "ok"
+
+    monkeypatch.setattr(llm, "_call", fake_call)
+    # start each call on cerebras so it errors then fails over to a groq key
+    for _ in range(3):
+        monkeypatch.setattr(llm, "_rr", [2])      # index 2 == cerebras first
+        llm.chat("s", "u", small=True)
+    stats = llm.provider_stats()
+    assert stats["cerebras"]["err"] == 3 and stats["cerebras"]["ok"] == 0
+    assert stats["groq"]["ok"] == 3               # failover served every call

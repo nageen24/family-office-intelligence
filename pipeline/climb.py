@@ -85,7 +85,8 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     if candidates is None:
         candidates = discover_candidates()
     if chat is None:
-        from rag.llm import chat as _chat
+        from rag.llm import chat as _chat, reset_provider_stats
+        reset_provider_stats()               # per-run provider health, read into summary
         # Bulk extraction runs on each provider's SMALL model and round-robins
         # across all configured free providers (Groq x2 / Cerebras / Gemini).
         # Rate limits are per provider AND per model, so this both
@@ -152,6 +153,13 @@ def climb_once(batch_size: int = 60, workers: int = 6, min_interval: float = 2.0
     summary = _summary(state, ledger, len(todo))
     summary.update(rechecked=rechecked, demoted=demoted, replenished=replenished,
                    staleness_catches=catches, needs_human=parked)
+    # which LLM providers actually served calls this run — a provider with all
+    # errors is dead weight (bad key/model) and forfeits its share of the TPD.
+    try:
+        from rag.llm import provider_stats
+        summary["provider_health"] = provider_stats()
+    except Exception:
+        pass
     # per-firm failure breakdown — the audit trail for the proof leak: why each
     # attempted firm produced no function proof (this run, and state-wide).
     attempted = todo + repl

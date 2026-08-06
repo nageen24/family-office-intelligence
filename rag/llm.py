@@ -118,6 +118,28 @@ def _call(provider: dict, system: str, user: str, temperature: float,
 _rr_lock = threading.Lock()
 _rr = [0]
 
+# Per-provider health: which providers actually SERVE calls vs error every time.
+# A provider that's dead (bad key/model) silently shifts all load onto the others
+# and defeats the point of the round-robin, so the climb surfaces these counts.
+_stats_lock = threading.Lock()
+_provider_stats: dict = {}
+
+
+def _bump_stat(name: str, ok: bool) -> None:
+    with _stats_lock:
+        s = _provider_stats.setdefault(name, {"ok": 0, "err": 0})
+        s["ok" if ok else "err"] += 1
+
+
+def provider_stats() -> dict:
+    with _stats_lock:
+        return {k: dict(v) for k, v in _provider_stats.items()}
+
+
+def reset_provider_stats() -> None:
+    with _stats_lock:
+        _provider_stats.clear()
+
 
 def chat(system: str, user: str, temperature: float = 0.0,
          small: bool = False, model: Optional[str] = None) -> str:
@@ -136,8 +158,11 @@ def chat(system: str, user: str, temperature: float = 0.0,
     last: Optional[Exception] = None
     for provider in providers[start:] + providers[:start]:  # chosen first, rest = fallback
         try:
-            return _call(provider, system, user, temperature, small=small,
-                         model=model)
+            out = _call(provider, system, user, temperature, small=small,
+                        model=model)
+            _bump_stat(provider["name"], ok=True)
+            return out
         except Exception as e:
+            _bump_stat(provider["name"], ok=False)
             last = e
     raise last
