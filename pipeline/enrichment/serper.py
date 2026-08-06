@@ -67,6 +67,44 @@ def find_person_linkedin(name: str, firm: str, client) -> Optional[str]:
     return None
 
 
+# Hosts that are never a firm's OWN website — search aggregators, registries,
+# directories, social. A Serper result on one of these is not the firm's site.
+_NON_FIRM_HOSTS = (
+    "linkedin.com", "facebook.com", "twitter.com", "x.com", "instagram.com",
+    "youtube.com", "wikipedia.org", "sec.gov", "sec.report", "finra.org",
+    "brokercheck.finra.org", "adviserinfo.sec.gov", "bloomberg.com",
+    "crunchbase.com", "zoominfo.com", "pitchbook.com", "whalewisdom.com",
+    "dnb.com", "opencorporates.com", "projects.propublica.org", "propublica.org",
+    "guidestar.org", "causeiq.org", "bizapedia.com", "buzzfile.com",
+    "manta.com", "yelp.com", "mapquest.com", "glassdoor.com", "indeed.com",
+    "google.com", "bing.com", "wsj.com", "reuters.com", "forbes.com",
+)
+
+
+def _host(url: str) -> str:
+    from urllib.parse import urlparse
+    return (urlparse(url if "//" in url else "//" + url).netloc or "").lower()
+
+
+def find_company_website(name: str, client,
+                         nonfirm=_NON_FIRM_HOSTS) -> Optional[str]:
+    """Best-guess official website for a name-only firm via Serper (works from any
+    IP, unlike the rendered-Bing finder that CI datacenter IPs get blocked on).
+
+    Returns the first organic result whose host is not a search aggregator /
+    registry / social site. The CALLER must still name-match the fetched page
+    before trusting it (an aggregator that slips through has no distinctive
+    firm tokens and is dropped there)."""
+    if not name:
+        return None
+    for url in client.search(f'{name} family office official website') or []:
+        h = _host(url)
+        if h and not any(bad in h for bad in nonfirm):
+            scheme = "https" if url.startswith("https") else "http"
+            return f"{scheme}://{h}"
+    return None
+
+
 def enrich_serper(firm: CandidateFirm, client) -> CandidateFirm:
     if firm.principal_name.is_blank() or not firm.principal_linkedin.is_blank():
         return firm

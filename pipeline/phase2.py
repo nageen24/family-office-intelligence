@@ -34,12 +34,23 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
                     fetch: Callable[[str], str] = fetch_site_text,
                     ledger=None, use_browser: bool = False,
                     add_news: bool = True,
-                    people_fetch: Callable[[str], str] = fetch_people_text) -> CandidateFirm:
+                    people_fetch: Callable[[str], str] = fetch_people_text,
+                    serper_client=None) -> CandidateFirm:
     """Fetch the firm's own site once; capture function/type proof + contacts.
 
-    With use_browser, a name-only firm (no website) gets one via a rendered search
-    (verified by name-match before trust), and a JS-thin page is supplemented with
-    a rendered fetch so LinkedIn profiles behind JS become visible."""
+    A name-only firm (EDGAR/990/News/CIK) first gets a website via Serper search
+    (keyed API — works from any IP, unlike the rendered-Bing finder CI gets blocked
+    on), then the browser finder as a fallback. Every found site is name-matched
+    against its fetched page before trust, so an aggregator/wrong hit is dropped."""
+    if not firm.website:
+        from pipeline.enrichment.serper import Serper, find_company_website
+        client = serper_client if serper_client is not None else Serper()
+        if getattr(client, "enabled", lambda: False)():
+            cand = find_company_website(firm.firm_name, client)
+            if cand and _distinctive_in(firm.firm_name, fetch(cand) or ""):
+                firm.website = cand
+                firm.proof_exists = (firm.proof_exists or
+                                     f"website found + name-verified via Serper search: {cand}")
     if not firm.website and use_browser:
         from pipeline.enrichment.render import find_website
         cand = find_website(firm.firm_name)
@@ -92,7 +103,7 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
 
     # Person-level contact — principal (code-verified on page) + scraped personal email.
     prin_llm = lambda text: chat(PRINCIPAL_SYSTEM, text)
-    prin = extract_principal(llm_page, prin_llm)
+    prin = extract_principal(llm_page, prin_llm, firm_name=firm.firm_name)
     if prin:
         firm.principal_name = Cell(
             value=prin["name"], source=firm.website,
@@ -115,7 +126,7 @@ def enrich_one_firm(firm: CandidateFirm, chat: Chat2,
         if ledger and people_page:
             ledger.bump("fetches")
         if people_page:
-            prin = extract_principal(people_page[:6000], prin_llm)
+            prin = extract_principal(people_page[:6000], prin_llm, firm_name=firm.firm_name)
             if prin:
                 firm.principal_name = Cell(
                     value=prin["name"], source=firm.website,

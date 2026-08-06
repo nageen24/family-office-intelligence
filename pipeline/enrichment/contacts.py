@@ -77,10 +77,25 @@ def extract_person_linkedin(text: str, principal_name: str) -> Optional[str]:
     return None
 
 
-def extract_principal(page_text: str, llm: LlmFn) -> Optional[dict]:
+def _looks_like_person(name: str, firm_name: str = "") -> bool:
+    """A real principal is a person, not the firm echoed back. Require >=2 name
+    tokens (a first + last), and reject a name whose tokens are all contained in
+    the firm name (e.g. principal 'Wilshire' for 'Wilshire ... Family Office')."""
+    toks = [t for t in re.split(r"[^A-Za-z]+", name) if len(t) >= 2]
+    if len(toks) < 2:
+        return False
+    firm_toks = {t for t in re.split(r"[^A-Za-z]+", (firm_name or "").lower())
+                 if len(t) >= 2}
+    return not all(t.lower() in firm_toks for t in toks)
+
+
+def extract_principal(page_text: str, llm: LlmFn,
+                      firm_name: str = "") -> Optional[dict]:
     data = _parse_json(llm(page_text))
     name = (data.get("principal_name") or "").strip()
     if not name or not quote_present(page_text, name):   # code-verify it's on the page
+        return None
+    if not _looks_like_person(name, firm_name):          # not the firm echoed back
         return None
     return {"name": name, "title": (data.get("principal_title") or "").strip() or None}
 
