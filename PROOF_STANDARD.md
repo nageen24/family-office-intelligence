@@ -50,11 +50,13 @@ and routed to the rejection log — it does not count toward the 50.
 Every high-value cell (email, phone, LinkedIn, AUM, thesis, signal) carries:
 `source` · `method` · `confidence (H/M/L)` · `epistemic (fact/inference/speculation)` · `as-of date`.
 
-- **Email:** MX record check (free); optional Hunter free-tier deliverability.
-  A domain with no MX, or a Hunter "undeliverable/invalid", is **removed from the
-  contact field** and the reason is kept as the cell's method. MX-only passes are
-  marked *inference / medium* because MX proves the domain accepts mail, not that
-  the specific mailbox exists.
+- **Email:** MX record check + a free SMTP RCPT mailbox probe (no paid tools;
+  Hunter is not used in Stage 2). A domain with no MX, or an address the SMTP
+  probe rejects as undeliverable, is **removed from the contact field** and the
+  reason is kept as the cell's method. MX-only / inconclusive-probe passes are
+  marked *inference / medium* because MX proves the domain accepts mail and a
+  blocked probe proves nothing about the specific mailbox; only a confirmed SMTP
+  RCPT on a non-catch-all domain is marked *verified*.
 - **Phone / others:** kept only with a source; format-checked; low confidence
   when scraped from a single page without a second source.
 - **Website:** every scripted search engine IP-blocks this environment (tested
