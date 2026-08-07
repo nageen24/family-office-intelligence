@@ -12,11 +12,11 @@ reviewer.
 | Qualifying records (shipped) | **2** | `data/final/dataset.csv` row count |
 | — by source class | ADV: 2 | `dataset.csv` `discovery_source` |
 | — by firm type | MFO: 1, FO-type-unknown: 1 | `dataset.csv` `firm_type` |
-| Function-proven firms | 7 | `climb_pool.json` where `proof_function_quote` set |
-| Attempted firms (full funnel) | 474 | `data/state/climb_pool.json` record count |
+| Function-proven firms | 8 | `climb_pool.json` where `proof_function_quote` set |
+| Attempted firms (full funnel) | 648 | `data/state/climb_pool.json` record count |
 
 The two qualifying records are ALPHA CAPITAL FAMILY OFFICE and SESTANTE FAMILY
-OFFICE. The other 5 proven firms have no personal reach route.
+OFFICE. The other 6 proven firms have no personal reach route.
 
 _Reviewer note:_ ______________________________________________________________
 
@@ -38,8 +38,8 @@ _Reviewer note:_ ______________________________________________________________
 
 | Number | Value | Source (recompute) |
 |---|---:|---|
-| Scheduled runs | 15 | `git log --grep "climb: scheduled run" | wc -l` |
-| Operating span | 59.0 h | first vs latest scheduled-run commit timestamp |
+| Scheduled runs | 19 | `git log --grep "climb: scheduled run" | wc -l` |
+| Operating span | 76.0 h | first (2026-08-04 03:35Z) vs latest (2026-08-07 07:33Z) scheduled-run commit |
 | Run-history entries | see file | `data/state/run_history.jsonl` line count |
 | Cash cost per run | **$0.00** | all providers free-tier (Groq/Cerebras/Gemini, Serper free credits) |
 | Cash cost per record | **$0.00** | $0 spend / any record count |

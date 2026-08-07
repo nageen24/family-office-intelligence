@@ -28,9 +28,9 @@ the committed files.
 - Runs unattended on a 3-hour schedule, committing state back to the repo (`.github/workflows/climb.yml`).
 
 **Honest numbers (recomputed in `docs/RECONCILIATION.md`):**
-- 2 qualifying records (both SEC Form ADV; 1 MFO, 1 FO-type-unknown); 7 firms function-proven; 474 attempted.
+- 2 qualifying records (both SEC Form ADV; 1 MFO, 1 FO-type-unknown); 8 firms function-proven; 648 attempted.
 - 0 verified personal emails against the 200 target — documented as a miss in `docs/DATA_HONEST_LIMITS.md`, not padded.
-- 15 scheduled runs over 59 hours; $0 cash cost (free tiers only).
+- 19 scheduled runs over 76 hours; $0 cash cost (free tiers only).
 
 **Supporting docs:**
 - `docs/RECONCILIATION.md` — every number, recomputed from the files.
