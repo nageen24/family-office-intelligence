@@ -1,3 +1,12 @@
+> ⚠️ **STAGE 1 — historical, superseded by Stage 2 numbers.** Everything below
+> records the Stage-1 build. Every count in this file (e.g. "50 records", "66",
+> "78 → 12 qualified", "215 rejected", "count 50 reconciles everywhere",
+> "phone 88%", the 8-vs-50 RAG episode) is a **Stage-1** figure and does **not**
+> describe the current Stage-2 dataset. For the live Stage-2 numbers see
+> `docs/RECONCILIATION.md` (attempted 648, proven 8, qualifying 2, 0 verified
+> emails). The Stage-2 RAG still embeds with **model2vec** (`rag/embed.py`,
+> potion-base-8M) as decided here.
+
 # Decision Log
 
 Running log of decisions, tradeoffs, and uncertainties during the build.

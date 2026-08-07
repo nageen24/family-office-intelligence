@@ -1,3 +1,10 @@
+> ⚠️ **STAGE 1 — historical, superseded by Stage 2 numbers.** All counts in this
+> file ("delivered 50", "38/50 SEC", "215 rejected", "3 SFO / 2 MFO / 45
+> Unconfirmed", "phone 40/50", "88% → 76%") are **Stage-1** figures and do **not**
+> describe the current Stage-2 dataset. For the live Stage-2 numbers see
+> `docs/RECONCILIATION.md` (attempted 648, proven 8, qualifying 2, 0 verified
+> personal emails).
+
 # Methodology Summary
 
 How the system found the family-office records, how it enriched them, how I

@@ -1,3 +1,9 @@
+> ⚠️ **STAGE 1 — historical, superseded by Stage 2 numbers.** Every count here
+> ("50", "66", "233 candidates", the 8-vs-50 RAG episode) is a **Stage-1** figure
+> and does **not** describe the current Stage-2 dataset. Live Stage-2 numbers:
+> `docs/RECONCILIATION.md` (attempted 648, proven 8, qualifying 2, 0 verified
+> emails).
+
 # Build Log
 
 Per-session record of work: what the AI produced, and what I (nageen24) changed, corrected, or decided on top of it. Feeds the final Build Session Summary. Honest hours only.
