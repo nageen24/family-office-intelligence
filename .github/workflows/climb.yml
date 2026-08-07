@@ -6,13 +6,16 @@ name: family-office-climb
 # the repo, so the Actions tab is the run history and git is the replay/state log.
 
 on:
+  # FROZEN FOR SUBMISSION: the scheduled cron is disabled so the repo does not
+  # change before review. Manual dispatch is kept for post-submission use; to
+  # resume automatic runs, restore the `schedule:` block below.
   workflow_dispatch:
     inputs:
       batch:
         description: firms this run (blank = provider-scaled default)
         default: ""
-  schedule:
-    - cron: "0 */3 * * *"        # every 3 hours
+  # schedule:
+  #   - cron: "0 */3 * * *"        # every 3 hours  (disabled — repo frozen for submit)
 
 permissions:
   contents: write                 # commit the accumulated state + dataset back
